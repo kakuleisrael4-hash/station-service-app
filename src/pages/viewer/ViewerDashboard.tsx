@@ -24,14 +24,14 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function ViewerDashboard() {
   const [tab, setTab] = useState<Tab>('global');
-  const { reports, pompistes, cisterns } = useData();
+  const { reports, pompistes, cisterns, settings } = useData();
   const period = currentPeriod();
 
   const daily = globalDaily(reports);
   let acc = 0;
   const cumulative = daily.map((d) => ({ date: d.date, jour: d.total, cumul: (acc += d.total) }));
   const share = volumeShare(reports, pompistes);
-  const rh = stationRH(pompistes);
+  const rh = stationRH(pompistes, settings.taux_journalier);
   const monthReports = reports.filter((r) => r.report_date.startsWith(period) && r.status === 'valide');
   const volMonth = monthReports.reduce((s, r) => s + r.essence_litrage + r.gasoil_litrage, 0);
   const caMonth = monthReports.reduce((s, r) => s + r.total_a_remettre, 0);

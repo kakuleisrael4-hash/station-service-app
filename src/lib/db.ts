@@ -70,6 +70,7 @@ export interface NewDebtInput {
 }
 export interface NewOrderInput {
   supplier_name: string;
+  fuel: FuelType;
   cistern_id: string;
   volume_l: number;
   purchase_price: number;
@@ -80,6 +81,11 @@ export interface NewPompisteInput {
   display_name: string;
   phone: string;
   base_salary: number;
+  base_salary_usd: number;
+}
+export interface SalaryParts {
+  base_salary: number;
+  base_salary_usd: number;
 }
 
 export interface StationDB {
@@ -94,7 +100,7 @@ export interface StationDB {
 
   // Mutations (admin)
   createReport(draft: ReportDraft, author: AppUser): Promise<Report>;
-  updateSalary(pompisteId: string, newSalary: number, changedBy: AppUser): Promise<void>;
+  updateSalary(pompisteId: string, salary: SalaryParts, changedBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;
   addDebt(input: NewDebtInput): Promise<void>;

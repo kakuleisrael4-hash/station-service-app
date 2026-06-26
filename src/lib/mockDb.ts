@@ -16,8 +16,8 @@ import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v7';
-const SESSION_KEY = 'kkcoil.session.v7';
+const STORE_KEY = 'kkcoil.store.v8';
+const SESSION_KEY = 'kkcoil.session.v8';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
 const DEMO_PASSWORD = '1234';
 
@@ -37,7 +37,7 @@ function seed(): StationData {
   // Roster minimal : un pompiste relié au compte de connexion. L'admin ajoute
   // les autres dans Paramètres → Fiches employés (bouton « Ajouter un pompiste »).
   const pompistes: PompisteProfile[] = [
-    { id: pJean, user_id: jeanUserId, display_name: 'Pompiste 1', phone: '', photo_url: null, base_salary: 0, cumul_manquants_mois: 0, current_period: currentPeriod(), active: true },
+    { id: pJean, user_id: jeanUserId, display_name: 'Pompiste 1', phone: '', photo_url: null, base_salary: 0, base_salary_usd: 0, cumul_manquants_mois: 0, current_period: currentPeriod(), active: true },
   ];
 
   const pumps = PUMPS.map((p) => ({ ...p }));
@@ -172,13 +172,16 @@ export const mockDb: StationDB = {
     return clone(report);
   },
 
-  async updateSalary(pompisteId, newSalary, changedBy) {
+  async updateSalary(pompisteId, salary, changedBy) {
     const pp = store.pompistes.find((p) => p.id === pompisteId);
-    if (!pp || pp.base_salary === newSalary) return;
-    const old = pp.base_salary;
-    store.salaryHistory = [{ id: uid(), pompiste_id: pompisteId, old_salary: old, new_salary: newSalary, changed_by: changedBy.id, changed_at: new Date().toISOString() }, ...store.salaryHistory];
-    pp.base_salary = newSalary;
-    if (newSalary > old && pp.user_id) store.notifications = [{ id: uid(), user_id: pp.user_id, type: 'augmentation_salaire', title: '🎉 Salaire augmenté !', body: `Votre salaire de base passe de ${old.toLocaleString('fr-FR')} à ${newSalary.toLocaleString('fr-FR')} FC. Félicitations !`, meta: { old, new: newSalary }, read: false, created_at: new Date().toISOString() }, ...store.notifications];
+    if (!pp) return;
+    const oldFc = pp.base_salary, oldUsd = pp.base_salary_usd;
+    if (oldFc === salary.base_salary && oldUsd === salary.base_salary_usd) return;
+    store.salaryHistory = [{ id: uid(), pompiste_id: pompisteId, old_salary: oldFc, new_salary: salary.base_salary, old_salary_usd: oldUsd, new_salary_usd: salary.base_salary_usd, changed_by: changedBy.id, changed_at: new Date().toISOString() }, ...store.salaryHistory];
+    pp.base_salary = salary.base_salary;
+    pp.base_salary_usd = salary.base_salary_usd;
+    const increased = salary.base_salary > oldFc || salary.base_salary_usd > oldUsd;
+    if (increased && pp.user_id) store.notifications = [{ id: uid(), user_id: pp.user_id, type: 'augmentation_salaire', title: '🎉 Salaire augmenté !', body: `Votre salaire de base est mis à jour : ${salary.base_salary.toLocaleString('fr-FR')} FC + ${salary.base_salary_usd.toLocaleString('fr-FR')} USD. Félicitations !`, meta: { oldFc, oldUsd, newFc: salary.base_salary, newUsd: salary.base_salary_usd }, read: false, created_at: new Date().toISOString() }, ...store.notifications];
     emit();
   },
 
@@ -209,7 +212,7 @@ export const mockDb: StationDB = {
     emit();
   },
   async createSupplierOrder(input: NewOrderInput) {
-    store.supplierOrders = [{ id: uid(), supplier_name: input.supplier_name, cistern_id: input.cistern_id, volume_l: input.volume_l, purchase_price: input.purchase_price, deposit: input.deposit, status: 'en_cours', order_date: input.order_date, delivered_at: null }, ...store.supplierOrders];
+    store.supplierOrders = [{ id: uid(), supplier_name: input.supplier_name, fuel: input.fuel, cistern_id: input.cistern_id, volume_l: input.volume_l, purchase_price: input.purchase_price, deposit: input.deposit, status: 'en_cours', order_date: input.order_date, delivered_at: null }, ...store.supplierOrders];
     snapshotCapital();
     emit();
   },
@@ -292,8 +295,8 @@ export const mockDb: StationDB = {
   async addPompiste(input: NewPompisteInput) {
     store.pompistes = [...store.pompistes, {
       id: uid(), user_id: null, display_name: input.display_name, phone: input.phone || null,
-      photo_url: null, base_salary: input.base_salary || 0, cumul_manquants_mois: 0,
-      current_period: currentPeriod(), active: true,
+      photo_url: null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0,
+      cumul_manquants_mois: 0, current_period: currentPeriod(), active: true,
     }];
     emit();
   },

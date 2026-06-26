@@ -30,8 +30,9 @@ create table if not exists public.pompiste_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique references public.users (id) on delete set null,
   display_name text not null, phone text, photo_url text,
-  base_salary numeric(14,2) not null default 0,
-  cumul_manquants_mois numeric(14,2) not null default 0,
+  base_salary numeric(14,2) not null default 0,        -- part FC
+  base_salary_usd numeric(14,2) not null default 0,    -- part USD
+  cumul_manquants_mois numeric(14,2) not null default 0,  -- toujours en FC
   current_period text not null default to_char(now(),'YYYY-MM'),
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -41,6 +42,7 @@ create table if not exists public.salary_history (
   id uuid primary key default gen_random_uuid(),
   pompiste_id uuid not null references public.pompiste_profiles (id) on delete cascade,
   old_salary numeric(14,2) not null, new_salary numeric(14,2) not null,
+  old_salary_usd numeric(14,2) not null default 0, new_salary_usd numeric(14,2) not null default 0,
   changed_by uuid references public.users (id), reason text,
   changed_at timestamptz not null default now()
 );
@@ -151,7 +153,8 @@ create table if not exists public.debt_payments (
 -- ----------------------- COMMANDES FOURNISSEURS ----------------------
 create table if not exists public.supplier_orders (
   id uuid primary key default gen_random_uuid(),
-  supplier_name text not null, cistern_id text not null references public.cisterns (id),
+  supplier_name text not null, fuel fuel_type not null default 'super',
+  cistern_id text not null references public.cisterns (id),
   volume_l numeric(14,2) not null, purchase_price numeric(16,2) not null default 0,
   deposit numeric(16,2) not null default 0, status order_status not null default 'en_cours',
   order_date date not null default current_date, delivered_at timestamptz
@@ -346,10 +349,14 @@ create trigger trg_report_validated before update on public.reports
 
 -- 6) Commande livrée -> incrémente la citerne + mouvement d'entrée
 create or replace function public.on_order_delivered() returns trigger language plpgsql as $$
-declare cur numeric; cap numeric; nom text;
+declare cur numeric; cap numeric; nom text; cfuel fuel_type;
 begin
   if new.status='livre' and (old.status is distinct from 'livre') then
-    select current_l, capacity_l, name into cur, cap, nom from public.cisterns where id=new.cistern_id;
+    select current_l, capacity_l, name, fuel into cur, cap, nom, cfuel from public.cisterns where id=new.cistern_id;
+    -- La citerne de déchargement doit correspondre au type de carburant de l'arrivage.
+    if cfuel <> new.fuel then
+      raise exception 'Citerne % (%) incompatible avec le carburant de l''arrivage (%)', nom, cfuel, new.fuel;
+    end if;
     -- Empêche une livraison qui dépasserait la capacité physique de la citerne.
     if cur + new.volume_l > cap then
       raise exception 'Livraison impossible : dépasse la capacité de % (dispo: % L, commande: % L)', nom, (cap-cur), new.volume_l;
@@ -381,14 +388,14 @@ create trigger trg_debt_payment after insert on public.debt_payments
 -- 8) Augmentation de salaire : historique + notif
 create or replace function public.on_salary_change() returns trigger language plpgsql as $$
 begin
-  if new.base_salary is distinct from old.base_salary then
-    insert into public.salary_history(pompiste_id,old_salary,new_salary,changed_by)
-      values (new.id,old.base_salary,new.base_salary,auth.uid());
-    if new.base_salary>old.base_salary and new.user_id is not null then
+  if new.base_salary is distinct from old.base_salary or new.base_salary_usd is distinct from old.base_salary_usd then
+    insert into public.salary_history(pompiste_id,old_salary,new_salary,old_salary_usd,new_salary_usd,changed_by)
+      values (new.id,old.base_salary,new.base_salary,old.base_salary_usd,new.base_salary_usd,auth.uid());
+    if (new.base_salary>old.base_salary or new.base_salary_usd>old.base_salary_usd) and new.user_id is not null then
       insert into public.notifications(user_id,type,title,body,meta)
       values (new.user_id,'augmentation_salaire','🎉 Salaire augmenté !',
-              'Votre salaire passe de '||old.base_salary||' à '||new.base_salary||' FC.',
-              jsonb_build_object('old',old.base_salary,'new',new.base_salary));
+              'Votre salaire de base : '||new.base_salary||' FC + '||new.base_salary_usd||' USD.',
+              jsonb_build_object('fc',new.base_salary,'usd',new.base_salary_usd));
     end if;
   end if;
   return new;

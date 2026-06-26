@@ -123,7 +123,10 @@ function DebtsTab({ debts, debtPayments, recoverable, addDebt, addDebtPayment }:
 }
 
 function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
-  const [form, setForm] = useState({ supplier_name: '', cistern_id: cisterns[0]?.id ?? '', volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
+  const firstOf = (fuel: string) => cisterns.find((c: any) => c.fuel === fuel)?.id ?? '';
+  const [form, setForm] = useState({ supplier_name: '', fuel: 'super', cistern_id: firstOf('super'), volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
+  const setFuel = (fuel: string) => setForm((f) => ({ ...f, fuel, cistern_id: firstOf(fuel) }));
+  const availableCisterns = cisterns.filter((c: any) => c.fuel === form.fuel);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -141,8 +144,8 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
     if (!form.supplier_name || !form.cistern_id || !Number.isFinite(volume_l) || volume_l <= 0) return;
     setBusy(true);
     try {
-      await createOrder({ supplier_name: form.supplier_name, cistern_id: form.cistern_id, volume_l, purchase_price: purchase_price || 0, deposit, order_date: form.order_date });
-      setForm({ supplier_name: '', cistern_id: cisterns[0]?.id ?? '', volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
+      await createOrder({ supplier_name: form.supplier_name, fuel: form.fuel, cistern_id: form.cistern_id, volume_l, purchase_price: purchase_price || 0, deposit, order_date: form.order_date });
+      setForm({ supplier_name: '', fuel: 'super', cistern_id: firstOf('super'), volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
     } finally { setBusy(false); }
   }
 
@@ -155,12 +158,27 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
       </div>
 
       <Card>
-        <SectionTitle icon={<Plus className="h-5 w-5" />} title="Nouvelle commande fournisseur" />
+        <SectionTitle icon={<Plus className="h-5 w-5" />} title="Nouvel arrivage / commande fournisseur" subtitle="Type de carburant + citerne de déchargement obligatoires" />
+        {/* Type de carburant (impose la/les citernes possibles) */}
+        <div className="mb-3">
+          <label className="label">Type de carburant *</label>
+          <div className="flex gap-2">
+            {(['super', 'gasoil'] as const).map((fl) => (
+              <button key={fl} type="button" onClick={() => setFuel(fl)}
+                className={`btn flex-1 ${form.fuel === fl ? (fl === 'gasoil' ? 'bg-fuel-500 text-night-950 shadow-glow' : 'bg-energy-500 text-night-950 shadow-glow') : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
+                {fl === 'gasoil' ? 'GASOIL' : 'SUPER'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <input className="field" placeholder="Nom du fournisseur" value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })} />
-          <select className="field" value={form.cistern_id} onChange={(e) => setForm({ ...form, cistern_id: e.target.value })}>
-            {cisterns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div>
+            <select className="field w-full" value={form.cistern_id} onChange={(e) => setForm({ ...form, cistern_id: e.target.value })} disabled={form.fuel === 'gasoil'}>
+              {availableCisterns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">{form.fuel === 'gasoil' ? 'Gasoil → Citerne Gasoil (imposée)' : 'Super → choisissez Super 1 ou Super 2'}</p>
+          </div>
           <input type="date" className="field" value={form.order_date} onChange={(e) => setForm({ ...form, order_date: e.target.value })} />
           <input type="number" className="field" placeholder="Volume (litres)" value={form.volume_l} onChange={(e) => setForm({ ...form, volume_l: e.target.value })} />
           <input type="number" className="field" placeholder="Prix d'achat total (FC)" value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: e.target.value })} />
@@ -183,7 +201,7 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                <th className="pb-2">Fournisseur</th><th className="pb-2">Citerne</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">Prix</th><th className="pb-2 text-right">Acompte</th><th className="pb-2">Statut</th><th className="pb-2"></th>
+                <th className="pb-2">Fournisseur</th><th className="pb-2">Carburant</th><th className="pb-2">Citerne</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">Prix</th><th className="pb-2 text-right">Acompte</th><th className="pb-2">Statut</th><th className="pb-2"></th>
               </tr></thead>
               <tbody className="divide-y divide-white/5">
                 {orders.map((o: any) => {
@@ -191,6 +209,7 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
                   return (
                     <tr key={o.id}>
                       <td className="py-2"><p className="font-medium">{o.supplier_name}</p><p className="text-xs text-slate-500">{fullDate(o.order_date)}</p></td>
+                      <td className="py-2"><span className={`chip ${o.fuel === 'gasoil' ? 'bg-fuel-500/15 text-fuel-300' : 'bg-energy-500/15 text-energy-300'}`}>{o.fuel === 'gasoil' ? 'GASOIL' : 'SUPER'}</span></td>
                       <td className="py-2 text-slate-300">{cit?.name ?? o.cistern_id}</td>
                       <td className="py-2 text-right tabular-nums">{liters(o.volume_l)}</td>
                       <td className="py-2 text-right tabular-nums">{fc(o.purchase_price)}</td>

@@ -8,8 +8,8 @@ import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import { Card, SectionTitle, StatCard, StarRating, EmptyState } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { pompisteDaily } from '@/lib/selectors';
-import { fc, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
+import { pompisteDaily, payrollOf } from '@/lib/selectors';
+import { fc, usd, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
 
 type Tab = 'communique' | 'performances' | 'compte';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function PompisteDashboard() {
   const { user } = useAuth();
-  const { reports, pompistes } = useData();
+  const { reports, pompistes, settings } = useData();
   const [tab, setTab] = useState<Tab>('communique');
 
   const me = pompistes.find((p) => p.id === user?.pompiste_id || p.user_id === user?.id);
@@ -36,9 +36,8 @@ export default function PompisteDashboard() {
   const starsValues = myReports.map((r) => r.final_stars ?? Math.round((r.auto_score ?? 0) / 2)).filter((x) => x > 0);
   const avgStars = starsValues.length ? Math.round(starsValues.reduce((a, b) => a + b, 0) / starsValues.length) : 0;
 
-  const base = me?.base_salary ?? 0;
-  const retenues = me?.cumul_manquants_mois ?? 0;
-  const net = base - retenues;
+  const taux = settings.taux_journalier;
+  const pay = me ? payrollOf(me, taux) : null;
 
   if (!me) {
     return (
@@ -144,21 +143,25 @@ export default function PompisteDashboard() {
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
             <SectionTitle icon={<Wallet className="h-5 w-5" />} title="Fiche de paie en direct" subtitle={`Période ${period}`}
-              right={<button onClick={() => exportPayslipPDF(me, period)} className="btn-ghost !py-1.5 !px-3"><FileDown className="h-4 w-4" /> PDF</button>} />
+              right={<button onClick={() => exportPayslipPDF(me, period, taux)} className="btn-ghost !py-1.5 !px-3"><FileDown className="h-4 w-4" /> PDF</button>} />
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/10">
                 <span className="text-slate-300">Salaire de base</span>
-                <span className="text-lg font-bold tabular-nums">{fc(base)}</span>
+                <span className="text-right text-lg font-bold tabular-nums">{fc(pay!.base_fc)}{pay!.base_usd > 0 && <span className="block text-sm text-fuel-300">+ {usd(pay!.base_usd)}</span>}</span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-rose-500/10 px-4 py-3 ring-1 ring-rose-500/30">
-                <span className="flex items-center gap-2 text-rose-300"><TrendingDown className="h-4 w-4" /> Retenues (manquants cumulés)</span>
-                <span className="text-lg font-bold tabular-nums text-rose-400">− {fc(retenues)}</span>
+                <span className="flex items-center gap-2 text-rose-300"><TrendingDown className="h-4 w-4" /> Retenues (manquants)</span>
+                <span className="text-right text-lg font-bold tabular-nums text-rose-400">− {fc(pay!.retenue_fc)}{pay!.retenue_usd > 0 && <span className="block text-sm">− {usd(pay!.retenue_usd)}</span>}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-energy-500/15 to-fuel-500/10 px-4 py-4 ring-1 ring-energy-400/30">
-                <span className="font-semibold">Net estimé en fin de mois</span>
-                <span className="text-2xl font-black tabular-nums text-energy-400">{fc(net)}</span>
+                <span className="font-semibold">Net estimé</span>
+                <span className="text-right">
+                  <span className="block text-2xl font-black tabular-nums text-energy-400">{fc(pay!.net_fc)}</span>
+                  {pay!.base_usd > 0 && <span className={`block text-sm font-bold ${pay!.net_usd < 0 ? 'text-rose-400' : 'text-fuel-300'}`}>+ {usd(pay!.net_usd)}</span>}
+                  <span className="block text-[11px] text-slate-500">≈ {fc(pay!.net_total_fc)}</span>
+                </span>
               </div>
-              <p className="text-xs text-slate-500">Les retenues correspondent à vos manquants imputés ce mois-ci. Un mois sans manquant = salaire de base intégral.</p>
+              <p className="text-xs text-slate-500">Le manquant est d'abord déduit de la part FC ; au-delà, le reste est converti et déduit de la part USD (taux {taux}).</p>
             </div>
           </Card>
 

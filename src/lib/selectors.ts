@@ -94,15 +94,40 @@ export function volumeShare(reports: Report[], pompistes: PompisteProfile[], per
     .filter((row) => row.value > 0);
 }
 
-export interface PayrollRow {
-  pompiste: PompisteProfile;
-  net: number;
+export interface PayrollBreakdown {
+  base_fc: number;
+  base_usd: number;
+  retenue_fc: number; // manquant déduit de la part FC
+  retenue_usd: number; // dépassement converti puis déduit de la part USD
+  net_fc: number;
+  net_usd: number;
+  net_total_fc: number; // net consolidé en FC (net_fc + net_usd * taux)
 }
 
-export function payroll(pompistes: PompisteProfile[]): PayrollRow[] {
-  return pompistes
-    .filter((p) => p.active)
-    .map((p) => ({ pompiste: p, net: p.base_salary - p.cumul_manquants_mois }));
+/**
+ * Salaire net bi-devise. Le manquant (FC) coupe d'abord dans la part FC ;
+ * si le manquant dépasse le FC disponible, le reste est converti en USD
+ * (au taux du jour) et déduit de la part USD.
+ */
+export function payrollOf(p: PompisteProfile, taux: number): PayrollBreakdown {
+  const base_fc = p.base_salary;
+  const base_usd = p.base_salary_usd;
+  const manq = p.cumul_manquants_mois; // FC
+  const retenue_fc = Math.min(manq, base_fc);
+  const overflow_fc = manq - retenue_fc; // reste après épuisement de la part FC
+  const retenue_usd = taux > 0 ? overflow_fc / taux : 0;
+  const net_fc = base_fc - retenue_fc;
+  const net_usd = base_usd - retenue_usd;
+  return { base_fc, base_usd, retenue_fc, retenue_usd, net_fc, net_usd, net_total_fc: net_fc + net_usd * taux };
+}
+
+export interface PayrollRow {
+  pompiste: PompisteProfile;
+  b: PayrollBreakdown;
+}
+
+export function payroll(pompistes: PompisteProfile[], taux: number): PayrollRow[] {
+  return pompistes.filter((p) => p.active).map((p) => ({ pompiste: p, b: payrollOf(p, taux) }));
 }
 
 /**
@@ -123,11 +148,12 @@ export function lastClosingIndexByPump(reports: Report[]): Record<string, number
   return out;
 }
 
-export function stationRH(pompistes: PompisteProfile[]) {
+export function stationRH(pompistes: PompisteProfile[], taux: number) {
   const active = pompistes.filter((p) => p.active);
-  const masseSalariale = active.reduce((s, p) => s + p.base_salary, 0);
+  const masseSalariale = active.reduce((s, p) => s + p.base_salary + p.base_salary_usd * taux, 0);
   const totalManquants = active.reduce((s, p) => s + p.cumul_manquants_mois, 0);
-  return { masseSalariale, totalManquants, netGlobal: masseSalariale - totalManquants, headcount: active.length };
+  const netGlobal = active.reduce((s, p) => s + payrollOf(p, taux).net_total_fc, 0);
+  return { masseSalariale, totalManquants, netGlobal, headcount: active.length };
 }
 
 // ===================== FINANCE : CAISSE / CAPITAL ====================

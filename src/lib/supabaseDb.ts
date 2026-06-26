@@ -102,7 +102,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const l = landingRow.data as any;
       return {
         users: (users.data ?? []) as any,
-        pompistes: (pompistes.data ?? []).map((p: any) => ({ ...p, base_salary: n(p.base_salary), cumul_manquants_mois: n(p.cumul_manquants_mois) })) as any,
+        pompistes: (pompistes.data ?? []).map((p: any) => ({ ...p, base_salary: n(p.base_salary), base_salary_usd: n(p.base_salary_usd), cumul_manquants_mois: n(p.cumul_manquants_mois) })) as any,
         reports: (reports.data ?? []).map((r: any) => mapReport(r, readings.data ?? [], expenses.data ?? [])),
         cisterns: (cisterns.data ?? []).map((c: any) => ({ ...c, capacity_l: n(c.capacity_l), current_l: n(c.current_l), sale_price_fc: n(c.sale_price_fc) })) as any,
         pumps: (pumps.data ?? []) as any,
@@ -163,8 +163,8 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       return mapReport(upd, readings ?? [], exps ?? []);
     },
 
-    async updateSalary(pompisteId, newSalary) {
-      const { error } = await sb.from('pompiste_profiles').update({ base_salary: newSalary }).eq('id', pompisteId);
+    async updateSalary(pompisteId, salary) {
+      const { error } = await sb.from('pompiste_profiles').update({ base_salary: salary.base_salary, base_salary_usd: salary.base_salary_usd }).eq('id', pompisteId);
       if (error) throw new Error(error.message);
     },
     async addExpenseCategory(name, color) {
@@ -225,7 +225,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (error) throw new Error(error.message);
     },
     async addPompiste(input) {
-      const { error } = await sb.from('pompiste_profiles').insert({ display_name: input.display_name, phone: input.phone || null, base_salary: input.base_salary || 0 });
+      const { error } = await sb.from('pompiste_profiles').insert({ display_name: input.display_name, phone: input.phone || null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0 });
       if (error) throw new Error(error.message);
     },
     async updatePompiste(id, patch) {

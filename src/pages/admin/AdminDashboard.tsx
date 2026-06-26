@@ -34,8 +34,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('communique');
-  const { reports, pompistes, cisterns } = useData();
-  const rh = stationRH(pompistes);
+  const { reports, pompistes, cisterns, settings } = useData();
+  const rh = stationRH(pompistes, settings.taux_journalier);
   const period = currentPeriod();
   const monthReports = reports.filter((r) => r.report_date.startsWith(period) && r.status === 'valide');
   const caisseMois = monthReports.reduce((s, r) => s + r.total_a_remettre, 0);

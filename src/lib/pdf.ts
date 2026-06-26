@@ -5,7 +5,7 @@
 import type { Debt, DebtPayment, PompisteProfile, Report } from '@/types';
 import { STATION, FUEL_LABEL, pumpById } from '@/constants';
 import { fc, usd, liters, fullDate } from './format';
-import { debtPaid, debtRemaining } from './selectors';
+import { debtPaid, debtRemaining, payrollOf } from './selectors';
 
 async function newDoc() {
   const { jsPDF } = await import('jspdf');
@@ -112,31 +112,34 @@ export async function exportReportPDF(report: Report, pompisteName: string) {
   doc.save(`rapport_${pompisteName.replace(/\s+/g, '_')}_${report.report_date}.pdf`);
 }
 
-/** Fiche de paie d'un pompiste. */
-export async function exportPayslipPDF(pompiste: PompisteProfile, period: string) {
+/** Fiche de paie d'un pompiste (bi-devise FC + USD). */
+export async function exportPayslipPDF(pompiste: PompisteProfile, period: string, taux: number) {
   const { doc, autoTable } = await newDoc();
   header(doc, 'FICHE DE PAIE', `Période ${period}`);
-  const net = pompiste.base_salary - pompiste.cumul_manquants_mois;
+  const b = payrollOf(pompiste, taux);
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(`Employé : ${pompiste.display_name}`, 14, 36);
-  if (pompiste.phone) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(`Tél : ${pompiste.phone}`, 14, 42); }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`${pompiste.phone ? 'Tél : ' + pompiste.phone + '   ·   ' : ''}Taux du jour : ${taux} FC/$`, 14, 42);
 
   autoTable(doc, {
     startY: 48,
-    head: [['Élément', 'Montant']],
+    head: [['Élément', 'FC', 'USD']],
     body: [
-      ['Salaire de base', fc(pompiste.base_salary)],
-      ['Retenues (manquants cumulés du mois)', `− ${fc(pompiste.cumul_manquants_mois)}`],
-      ['NET À PAYER', fc(net)],
+      ['Salaire de base', fc(b.base_fc), usd(b.base_usd)],
+      ['Retenues (manquants)', `− ${fc(b.retenue_fc)}`, b.retenue_usd > 0 ? `− ${usd(b.retenue_usd)}` : '—'],
+      ['NET À PAYER', fc(b.net_fc), usd(b.net_usd)],
+      ['NET CONSOLIDÉ (≈ FC)', fc(b.net_total_fc), ''],
     ],
     headStyles: { fillColor: GREEN, textColor: DARK },
     styles: { fontSize: 11 },
-    columnStyles: { 1: { halign: 'right' } },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
     didParseCell: (d: any) => {
-      if (d.section === 'body' && d.row.index === 1 && d.column.index === 1) d.cell.styles.textColor = [220, 38, 38];
-      if (d.section === 'body' && d.row.index === 2) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.textColor = d.column.index === 1 ? GREEN : DARK; }
+      if (d.section === 'body' && d.row.index === 1 && d.column.index > 0) d.cell.styles.textColor = [220, 38, 38];
+      if (d.section === 'body' && d.row.index >= 2) { d.cell.styles.fontStyle = 'bold'; if (d.column.index > 0) d.cell.styles.textColor = GREEN; }
     },
   });
   footer(doc);

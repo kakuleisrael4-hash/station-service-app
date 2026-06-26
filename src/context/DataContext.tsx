@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AppUser, LandingContent, OrderStatus, PompisteProfile, Pump, ReportDraft, Role, Settings } from '@/types';
-import { getDb, type NewDebtInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type StationData } from '@/lib/db';
+import { getDb, type NewDebtInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type SalaryParts, type StationData } from '@/lib/db';
 import { DEFAULT_LANDING, DEFAULT_SETTINGS } from '@/constants';
 
 interface DataCtx extends StationData {
   ready: boolean;
   refresh: () => Promise<void>;
   createReport: (draft: ReportDraft, author: AppUser) => Promise<void>;
-  updateSalary: (pompisteId: string, newSalary: number, changedBy: AppUser) => Promise<void>;
+  updateSalary: (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => Promise<void>;
   addExpenseCategory: (name: string, color: string) => Promise<void>;
   addExpense: (input: NewExpenseInput) => Promise<void>;
   addDebt: (input: NewDebtInput) => Promise<void>;
@@ -84,8 +84,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const updateSalary = useCallback(
-    async (pompisteId: string, newSalary: number, changedBy: AppUser) => {
-      await db.updateSalary(pompisteId, newSalary, changedBy);
+    async (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => {
+      await db.updateSalary(pompisteId, salary, changedBy);
       await refresh();
     },
     [db, refresh],

@@ -16,11 +16,11 @@ export default function SettingsPanel() {
   } = useData();
 
   // --- Ajout d'un pompiste ---
-  const [newP, setNewP] = useState({ display_name: '', phone: '', base_salary: '' });
+  const [newP, setNewP] = useState({ display_name: '', phone: '', base_salary: '', base_salary_usd: '' });
   async function addNewPompiste() {
     if (!newP.display_name.trim()) return;
-    await addPompiste({ display_name: newP.display_name.trim(), phone: newP.phone.trim(), base_salary: parseFloat(newP.base_salary) || 0 });
-    setNewP({ display_name: '', phone: '', base_salary: '' });
+    await addPompiste({ display_name: newP.display_name.trim(), phone: newP.phone.trim(), base_salary: parseFloat(newP.base_salary) || 0, base_salary_usd: parseFloat(newP.base_salary_usd) || 0 });
+    setNewP({ display_name: '', phone: '', base_salary: '', base_salary_usd: '' });
   }
 
   // --- Prix & taux ---
@@ -83,14 +83,15 @@ export default function SettingsPanel() {
       <Card>
         <SectionTitle icon={<Users className="h-5 w-5" />} title="Fiches employés" subtitle="Ajouter, renommer, salaires de base, statut" />
         {/* Ajout d'un pompiste */}
-        <div className="mb-4 grid items-end gap-2 rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+        <div className="mb-4 grid items-end gap-2 rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20 sm:grid-cols-[1.3fr_1fr_1fr_1fr_auto]">
           <div><label className="label">Nouveau pompiste</label><input className="field !py-2" placeholder="Nom complet" value={newP.display_name} onChange={(e) => setNewP({ ...newP, display_name: e.target.value })} /></div>
           <input className="field !py-2" placeholder="Téléphone" value={newP.phone} onChange={(e) => setNewP({ ...newP, phone: e.target.value })} />
-          <input type="number" className="field !py-2" placeholder="Salaire de base (FC)" value={newP.base_salary} onChange={(e) => setNewP({ ...newP, base_salary: e.target.value })} />
+          <input type="number" className="field !py-2" placeholder="Salaire FC" value={newP.base_salary} onChange={(e) => setNewP({ ...newP, base_salary: e.target.value })} />
+          <input type="number" className="field !py-2" placeholder="Salaire USD" value={newP.base_salary_usd} onChange={(e) => setNewP({ ...newP, base_salary_usd: e.target.value })} />
           <button onClick={addNewPompiste} disabled={!newP.display_name.trim()} className="btn-primary !py-2"><Plus className="h-4 w-4" /> Ajouter</button>
         </div>
         <div className="space-y-2">
-          {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, s) => user && updateSalary(id, s, user)} />)}
+          {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, salary) => user && updateSalary(id, salary, user)} />)}
         </div>
       </Card>
 
@@ -145,23 +146,25 @@ function CisternRow({ cistern, onSave }: { cistern: Cistern; onSave: (id: string
   );
 }
 
-function EmployeeRow({ pompiste, onSavePatch, onSaveSalary }: { pompiste: any; onSavePatch: (id: string, patch: any) => void; onSaveSalary: (id: string, s: number) => void }) {
+function EmployeeRow({ pompiste, onSavePatch, onSaveSalary }: { pompiste: any; onSavePatch: (id: string, patch: any) => void; onSaveSalary: (id: string, salary: { base_salary: number; base_salary_usd: number }) => void }) {
   const [name, setName] = useState(pompiste.display_name);
   const [phone, setPhone] = useState(pompiste.phone ?? '');
-  const [salary, setSalary] = useState(String(pompiste.base_salary));
+  const [salFc, setSalFc] = useState(String(pompiste.base_salary));
+  const [salUsd, setSalUsd] = useState(String(pompiste.base_salary_usd));
   const [active, setActive] = useState(pompiste.active);
 
   function save() {
     onSavePatch(pompiste.id, { display_name: name, phone, active });
-    const s = parseFloat(salary);
-    if (Number.isFinite(s) && s !== pompiste.base_salary) onSaveSalary(pompiste.id, s);
+    const fcv = parseFloat(salFc) || 0, usdv = parseFloat(salUsd) || 0;
+    if (fcv !== pompiste.base_salary || usdv !== pompiste.base_salary_usd) onSaveSalary(pompiste.id, { base_salary: fcv, base_salary_usd: usdv });
   }
 
   return (
-    <div className="grid items-center gap-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10 sm:grid-cols-[1.4fr_1fr_1fr_auto_auto]">
+    <div className="grid items-center gap-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10 sm:grid-cols-[1.3fr_1fr_0.9fr_0.9fr_auto_auto]">
       <input className="field !py-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" />
       <input className="field !py-2" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Téléphone" />
-      <input type="number" className="field !py-2" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="Salaire" />
+      <input type="number" className="field !py-2" value={salFc} onChange={(e) => setSalFc(e.target.value)} placeholder="Salaire FC" title="Part FC" />
+      <input type="number" className="field !py-2" value={salUsd} onChange={(e) => setSalUsd(e.target.value)} placeholder="Salaire USD" title="Part USD" />
       <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-energy-500" /> Actif</label>
       <button onClick={save} className="btn-ghost !py-1.5 !px-3"><Save className="h-4 w-4" /></button>
     </div>

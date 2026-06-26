@@ -29,8 +29,9 @@ export interface PompisteProfile {
   display_name: string;
   phone?: string | null;
   photo_url?: string | null;
-  base_salary: number;
-  cumul_manquants_mois: number;
+  base_salary: number; // part du salaire en FC
+  base_salary_usd: number; // part du salaire en USD
+  cumul_manquants_mois: number; // toujours en FC
   current_period: string;
   active: boolean;
 }
@@ -40,6 +41,8 @@ export interface SalaryHistory {
   pompiste_id: string;
   old_salary: number;
   new_salary: number;
+  old_salary_usd?: number;
+  new_salary_usd?: number;
   changed_by?: string | null;
   reason?: string | null;
   changed_at: string;
@@ -147,7 +150,8 @@ export interface DebtPayment {
 export interface SupplierOrder {
   id: string;
   supplier_name: string;
-  cistern_id: string;
+  fuel: FuelType; // SUPER ou GASOIL (arrivage)
+  cistern_id: string; // citerne de déchargement (cohérente avec fuel)
   volume_l: number;
   purchase_price: number;
   deposit: number;
