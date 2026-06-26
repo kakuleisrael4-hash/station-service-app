@@ -1,5 +1,9 @@
 # STATION KKC OIL — Gestion de station-service
 
+**🌍 Démo en ligne : https://kakuleisrael4-hash.github.io/station-service-app/**
+(comptes `admin@kkc.cd` / `jean@kkc.cd` / `audit@kkc.cd`, mot de passe `1234`).
+Déploiement & passage en production Supabase : voir [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Application web complète (site vitrine + back-office multi-rôles temps réel) pour gérer
 les rapports journaliers, la caisse, les cuves, la RH et les performances des pompistes.
 
