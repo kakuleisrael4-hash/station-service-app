@@ -1,0 +1,298 @@
+// =====================================================================
+//  Modèle de données — miroir du schéma supabase/schema.sql
+//  NOTE: "essence" == "Super" dans tout le code (l'enum DB historique).
+//  Les agrégats Report.essence_* représentent le total SUPER (pompes 2-4).
+// =====================================================================
+
+export type Role = 'admin' | 'pompiste' | 'viewer';
+export type ReportStatus = 'brouillon' | 'valide';
+export type FuelType = 'super' | 'gasoil';
+export type NotifType = 'manquant' | 'augmentation_salaire' | 'rapport_valide' | 'info';
+export type MovementKind = 'entree' | 'sortie';
+export type MovementSource = 'livraison' | 'rapport' | 'ajustement';
+export type DebtStatus = 'en_attente' | 'soldee';
+export type OrderStatus = 'en_cours' | 'livre';
+export type Currency = 'FC' | 'USD';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: Role;
+  avatar_url?: string | null;
+  pompiste_id?: string | null;
+}
+
+export interface PompisteProfile {
+  id: string;
+  user_id: string | null;
+  display_name: string;
+  phone?: string | null;
+  photo_url?: string | null;
+  base_salary: number;
+  cumul_manquants_mois: number;
+  current_period: string;
+  active: boolean;
+}
+
+export interface SalaryHistory {
+  id: string;
+  pompiste_id: string;
+  old_salary: number;
+  new_salary: number;
+  changed_by?: string | null;
+  reason?: string | null;
+  changed_at: string;
+}
+
+// ----------------------- ARCHITECTURE PHYSIQUE -----------------------
+/** Citerne / cuve. 3 au total : 1 Gasoil + 2 Super. */
+export interface Cistern {
+  id: string;
+  name: string;
+  fuel: FuelType;
+  capacity_l: number;
+  current_l: number;
+  sale_price_fc: number; // prix de vente unitaire FC/L (sert au calcul du capital)
+  updated_at: string;
+}
+
+/** Pompe. 4 au total, chacune reliée à une citerne. */
+export interface Pump {
+  id: string;
+  label: string;
+  fuel: FuelType;
+  cistern_id: string;
+}
+
+/** Relevé d'index d'une pompe dans un rapport. */
+export interface PumpReading {
+  pump_id: string;
+  fuel: FuelType;
+  cistern_id: string;
+  index_open: number;
+  index_close: number;
+  litrage: number;
+  unit_price: number;
+  montant: number;
+}
+
+/** Mouvement de carburant d'une citerne (entrée livraison / sortie vente). */
+export interface FuelMovement {
+  id: string;
+  cistern_id: string;
+  kind: MovementKind;
+  volume_l: number;
+  source: MovementSource;
+  ref_id?: string | null; // report_id ou supplier_order_id
+  label: string;
+  created_at: string;
+}
+
+/** Relevé de jauge physique — double sécurisation théorique vs physique. */
+export interface StockLog {
+  id: string;
+  cistern_id: string;
+  theoretical_l: number; // stock système (initial + livraisons - ventes)
+  physical_l: number; // relevé manuel admin
+  ecart: number; // physical - theoretical (négatif = coulage)
+  note?: string | null;
+  created_by?: string | null;
+  created_at: string;
+}
+
+// --------------------------- CAISSE / DÉPENSES -----------------------
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** Dépense — liée à un rapport (report_id) ou hors-rapport (null). */
+export interface Expense {
+  id: string;
+  category_id: string | null;
+  description: string;
+  amount: number; // montant brut dans la devise choisie
+  currency: Currency;
+  amount_fc: number; // valeur convertie en FC (capturée à la saisie)
+  date: string;
+  report_id?: string | null;
+  created_at?: string;
+}
+
+// ----------------------------- DETTES --------------------------------
+export interface Debt {
+  id: string;
+  client_name: string;
+  phone?: string | null;
+  fuel: FuelType;
+  liters: number;
+  total_amount: number; // dans la devise de la dette
+  currency: Currency;
+  date: string;
+  status: DebtStatus;
+  created_at: string;
+}
+
+export interface DebtPayment {
+  id: string;
+  debt_id: string;
+  amount: number;
+  currency: Currency; // même devise que la dette
+  date: string;
+}
+
+// ------------------------ COMMANDES FOURNISSEURS ---------------------
+export interface SupplierOrder {
+  id: string;
+  supplier_name: string;
+  cistern_id: string;
+  volume_l: number;
+  purchase_price: number;
+  deposit: number;
+  status: OrderStatus;
+  order_date: string;
+  delivered_at?: string | null;
+}
+
+// ----------------------------- CAPITAL -------------------------------
+export interface CapitalPoint {
+  date: string;
+  caisse: number;
+  stock_value: number;
+  debts: number;
+  orders_value: number; // valeur des commandes fournisseurs en cours
+  capital: number;
+}
+
+// ------------------------ COMMUNIQUÉS & RÉGLAGES ---------------------
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  author_id?: string | null;
+  created_at: string;
+}
+
+/** Paramètres globaux modifiables par l'Admin. */
+export interface Settings {
+  essence_price: number; // FC/L Super
+  gasoil_price: number; // FC/L Gasoil
+  taux_journalier: number; // USD -> FC
+  updated_at: string;
+}
+
+// --------------------- CMS : CONTENU DE LA VITRINE -------------------
+export interface GalleryImage {
+  id: string;
+  url: string; // URL Supabase Storage (prod) ou data-URL (démo locale)
+  caption?: string;
+}
+
+export interface SocialLinks {
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
+  tiktok?: string;
+}
+
+/** Contenu éditable de la page d'accueil (table landing_page_content, singleton). */
+export interface LandingContent {
+  hero_title: string;
+  hero_slogan: string;
+  hero_bg_url: string;
+  logo_url: string;
+  about_text: string;
+  gallery: GalleryImage[];
+  hours: string;
+  phones: string;
+  address: string;
+  social: SocialLinks;
+  updated_at: string;
+}
+
+/** Quantités de billets par coupure FC. */
+export type Billetage = Record<string, number>;
+
+export interface Report {
+  id: string;
+  pompiste_id: string;
+  author_id?: string | null;
+  report_date: string;
+
+  pump_readings: PumpReading[]; // 4 pompes
+
+  manquant: number;
+  taux_journalier: number;
+  total_usd: number;
+  billetage: Billetage;
+  expenses: Expense[];
+
+  auto_score: number | null;
+  final_stars: number | null;
+  admin_comment?: string | null;
+
+  // agrégats dérivés (essence == Super)
+  essence_litrage: number;
+  essence_montant: number;
+  gasoil_litrage: number;
+  gasoil_montant: number;
+  total_depenses: number;
+  total_a_remettre: number; // Y
+  total_billetage_fc: number;
+  total_usd_fc: number;
+  total_encaisse: number; // X
+  ecart: number;
+
+  status: ReportStatus;
+  validated_at?: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotifType;
+  title: string;
+  body?: string | null;
+  meta?: Record<string, unknown>;
+  read: boolean;
+  created_at: string;
+}
+
+/** Saisie d'une pompe dans le formulaire (chaînes -> nombres). */
+export interface PumpDraft {
+  pump_id: string;
+  index_open: number;
+  index_close: number;
+}
+
+export interface ReportDraft {
+  pompiste_id: string;
+  report_date: string;
+  pumps: PumpDraft[];
+  manquant: number;
+  taux_journalier: number;
+  total_usd: number;
+  billetage: Billetage;
+  expenses: Expense[];
+  final_stars: number | null;
+  admin_comment: string;
+}
+
+export interface ComputedReport {
+  pumps: PumpReading[];
+  essence_litrage: number;
+  essence_montant: number;
+  gasoil_litrage: number;
+  gasoil_montant: number;
+  total_depenses: number;
+  total_a_remettre: number; // Y
+  total_billetage_fc: number;
+  total_usd_fc: number;
+  total_encaisse: number; // X
+  ecart: number;
+  is_balanced: boolean;
+  auto_score: number;
+}

@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-night-950 text-slate-100 font-sans antialiased;
+  background-image:
+    radial-gradient(60rem 60rem at 80% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 20%, rgba(245, 158, 11, 0.08), transparent 55%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.04] border border-white/10 backdrop-blur-xl;
+  }
+  .card {
+    @apply glass rounded-2xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-energy-400/60 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-energy-500 text-night-950 hover:bg-energy-400 shadow-glow;
+  }
+  .btn-ghost {
+    @apply btn bg-white/5 text-slate-100 hover:bg-white/10 border border-white/10;
+  }
+  .btn-danger {
+    @apply btn bg-rose-500 text-white hover:bg-rose-400;
+  }
+  .field {
+    @apply w-full rounded-xl bg-night-900/70 border border-white/10 px-3.5 py-2.5 text-sm text-slate-100
+           placeholder:text-slate-500 focus:outline-none focus:border-energy-400/70 focus:ring-2 focus:ring-energy-400/30 transition;
+  }
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
+
+/* Scrollbar discrète */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/20;
+}

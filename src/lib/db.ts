@@ -1,0 +1,132 @@
+// =====================================================================
+//  Couche d'accès aux données — UNE interface, DEUX implémentations.
+//  - Sans clés Supabase  -> magasin local temps-réel (mockDb).
+//  - Avec clés Supabase   -> Postgres + Realtime + RLS (supabaseDb).
+// =====================================================================
+import type {
+  Announcement,
+  AppUser,
+  CapitalPoint,
+  Cistern,
+  Currency,
+  Debt,
+  DebtPayment,
+  Expense,
+  ExpenseCategory,
+  FuelMovement,
+  FuelType,
+  LandingContent,
+  Notification,
+  OrderStatus,
+  PompisteProfile,
+  Pump,
+  Report,
+  ReportDraft,
+  Role,
+  SalaryHistory,
+  Settings,
+  StockLog,
+  SupplierOrder,
+} from '@/types';
+import { mockDb } from './mockDb';
+import { createSupabaseDb } from './supabaseDb';
+
+export interface StationData {
+  users: AppUser[];
+  pompistes: PompisteProfile[];
+  reports: Report[];
+  cisterns: Cistern[];
+  pumps: Pump[];
+  fuelMovements: FuelMovement[];
+  expenseCategories: ExpenseCategory[];
+  expenses: Expense[];
+  debts: Debt[];
+  debtPayments: DebtPayment[];
+  supplierOrders: SupplierOrder[];
+  capitalHistory: CapitalPoint[];
+  stockLogs: StockLog[];
+  announcements: Announcement[];
+  settings: Settings;
+  landing: LandingContent;
+  notifications: Notification[];
+  salaryHistory: SalaryHistory[];
+}
+
+export interface NewExpenseInput {
+  category_id: string | null;
+  description: string;
+  amount: number;
+  currency: Currency;
+  date: string;
+}
+export interface NewDebtInput {
+  client_name: string;
+  phone: string;
+  fuel: FuelType;
+  liters: number;
+  total_amount: number;
+  currency: Currency;
+  date: string;
+}
+export interface NewOrderInput {
+  supplier_name: string;
+  cistern_id: string;
+  volume_l: number;
+  purchase_price: number;
+  deposit: number;
+  order_date: string;
+}
+
+export interface StationDB {
+  readonly isMock: boolean;
+
+  getSession(): Promise<AppUser | null>;
+  signIn(email: string, password: string): Promise<AppUser>;
+  signInDemo?(role: Role): Promise<AppUser>;
+  signOut(): Promise<void>;
+
+  loadAll(): Promise<StationData>;
+
+  // Mutations (admin)
+  createReport(draft: ReportDraft, author: AppUser): Promise<Report>;
+  updateSalary(pompisteId: string, newSalary: number, changedBy: AppUser): Promise<void>;
+  addExpenseCategory(name: string, color: string): Promise<void>;
+  addExpense(input: NewExpenseInput): Promise<void>;
+  addDebt(input: NewDebtInput): Promise<void>;
+  addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
+  createSupplierOrder(input: NewOrderInput): Promise<void>;
+  setOrderStatus(orderId: string, status: OrderStatus): Promise<void>;
+
+  // Stock physique / audit
+  addStockLog(cisternId: string, physicalL: number, note: string, adjust: boolean): Promise<void>;
+
+  // Communiqués & paramètres
+  addAnnouncement(title: string, body: string, author: AppUser): Promise<void>;
+  deleteAnnouncement(id: string): Promise<void>;
+  updateSettings(patch: Partial<Settings>): Promise<void>;
+  updatePump(pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>): Promise<void>;
+  updateCisternCapacity(cisternId: string, capacityL: number): Promise<void>;
+  updatePompiste(id: string, patch: Partial<PompisteProfile>): Promise<void>;
+  updateUserRole(userId: string, role: Role): Promise<void>;
+
+  // CMS vitrine
+  updateLanding(content: LandingContent): Promise<void>;
+
+  markNotificationRead(id: string): Promise<void>;
+
+  subscribe(cb: () => void): () => void;
+}
+
+let _db: StationDB | null = null;
+
+export function getDb(): StationDB {
+  if (_db) return _db;
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  _db = url && key ? createSupabaseDb(url, key) : mockDb;
+  return _db;
+}
+
+export const USING_SUPABASE = Boolean(
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+);
