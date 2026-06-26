@@ -1,11 +1,13 @@
 # Déploiement — STATION KKC OIL
 
-## 🌍 Démo en ligne (déjà déployée)
+## 🌍 En ligne (déjà déployé)
 
-**https://kakuleisrael4-hash.github.io/station-service-app/**
+**Production : https://kkcoil.com** — hébergé sur **Netlify**, domaine personnalisé + SSL Let's Encrypt
+automatique (`www` → apex, `http` → `https`). Auto-déploiement à chaque `push` sur `main`.
 
-- Hébergée sur **GitHub Pages**, build automatique via GitHub Actions à chaque `push` sur `main`.
-- Tourne en **mode démo local** (données dans le navigateur, `localStorage`) — aucune base requise.
+Miroir GitHub Pages : https://kakuleisrael4-hash.github.io/station-service-app/ (peut être désactivé).
+
+- Tourne en **mode démo local** (données dans le navigateur, `localStorage`) tant que Supabase n'est pas branché.
 - Comptes : `admin@kkc.cd` · `jean@kkc.cd` · `audit@kkc.cd` — mot de passe `1234` (boutons de connexion rapide aussi).
 
 ### Comment ça redéploie
