@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Wallet, TrendingUp, History, Loader2 } from 'lucide-react';
+import { Wallet, TrendingUp, History, Loader2, FileDown } from 'lucide-react';
 import { Card, SectionTitle, Modal, StatCard } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { payroll, stationRH } from '@/lib/selectors';
-import { fc, fullDate } from '@/lib/format';
+import { fc, fullDate, currentPeriod } from '@/lib/format';
+import { exportPayslipPDF } from '@/lib/pdf';
 import type { PompisteProfile } from '@/types';
 
 export default function SalaryManagement() {
@@ -60,9 +61,12 @@ export default function SalaryManagement() {
                   <td className="py-3 text-right tabular-nums text-rose-400">− {fc(pompiste.cumul_manquants_mois)}</td>
                   <td className="py-3 text-right font-bold tabular-nums text-energy-400">{fc(net)}</td>
                   <td className="py-3 text-right">
-                    <button onClick={() => { setEditing(pompiste); setNewSalary(String(pompiste.base_salary)); }} className="btn-ghost !py-1.5 !px-3">
-                      <TrendingUp className="h-4 w-4" /> Augmenter
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => exportPayslipPDF(pompiste, currentPeriod())} className="btn-ghost !py-1.5 !px-2.5" title="Fiche de paie PDF"><FileDown className="h-4 w-4" /></button>
+                      <button onClick={() => { setEditing(pompiste); setNewSalary(String(pompiste.base_salary)); }} className="btn-ghost !py-1.5 !px-3">
+                        <TrendingUp className="h-4 w-4" /> Augmenter
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

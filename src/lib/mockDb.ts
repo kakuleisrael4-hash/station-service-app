@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 import { computeReport, expenseFC } from './calc';
 import { computeCapital } from './selectors';
+import { fileToDataUrl } from './files';
 import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
@@ -312,6 +313,11 @@ export const mockDb: StationDB = {
     } catch {
       throw new Error("Stockage local saturé : réduisez le nombre/poids des images de la galerie.");
     }
+  },
+
+  async uploadImage(file) {
+    // Mode démo : image compressée stockée en data-URL dans le contenu.
+    return fileToDataUrl(file);
   },
 
   async markNotificationRead(id) {

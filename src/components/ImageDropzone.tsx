@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { UploadCloud, X, ImageIcon, Loader2 } from 'lucide-react';
-import { fileToDataUrl } from '@/lib/files';
+import { useData } from '@/context/DataContext';
 
 interface Props {
   value?: string;
@@ -13,6 +13,7 @@ interface Props {
 
 /** Sélecteur d'image avec glisser-déposer + aperçu (Image Preview). */
 export default function ImageDropzone({ value, onChange, label, aspect = '16/9', rounded = 'xl' }: Props) {
+  const { uploadImage } = useData();
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export default function ImageDropzone({ value, onChange, label, aspect = '16/9',
     setBusy(true);
     setErr(null);
     try {
-      onChange(await fileToDataUrl(file));
+      onChange(await uploadImage(file));
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Image invalide.');
     } finally {

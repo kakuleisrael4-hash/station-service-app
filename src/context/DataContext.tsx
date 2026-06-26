@@ -24,6 +24,7 @@ interface DataCtx extends StationData {
   updatePompiste: (id: string, patch: Partial<PompisteProfile>) => Promise<void>;
   updateUserRole: (userId: string, role: Role) => Promise<void>;
   updateLanding: (content: LandingContent) => Promise<void>;
+  uploadImage: (file: File) => Promise<string>;
   markNotificationRead: (id: string) => Promise<void>;
 }
 
@@ -114,9 +115,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updatePompiste = useCallback(async (id: string, patch: Partial<PompisteProfile>) => { await db.updatePompiste(id, patch); await refresh(); }, [db, refresh]);
   const updateUserRole = useCallback(async (userId: string, role: Role) => { await db.updateUserRole(userId, role); await refresh(); }, [db, refresh]);
   const updateLanding = useCallback(async (content: LandingContent) => { await db.updateLanding(content); await refresh(); }, [db, refresh]);
+  const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, updateSalary, addExpenseCategory, addExpense, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateUserRole, updateLanding, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, updateSalary, addExpenseCategory, addExpense, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

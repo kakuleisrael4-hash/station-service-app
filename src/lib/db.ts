@@ -117,6 +117,8 @@ export interface StationDB {
 
   // CMS vitrine
   updateLanding(content: LandingContent): Promise<void>;
+  /** Téléverse une image et renvoie son URL (data-URL en démo, URL Storage en prod). */
+  uploadImage(file: File): Promise<string>;
 
   markNotificationRead(id: string): Promise<void>;
 

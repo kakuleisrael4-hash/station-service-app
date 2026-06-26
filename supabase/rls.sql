@@ -92,6 +92,16 @@ create policy notif_read on public.notifications for select using (user_id=auth.
 create policy notif_update on public.notifications for update using (user_id=auth.uid());
 create policy notif_insert on public.notifications for insert with check (public.is_admin() or user_id=auth.uid());
 
+-- STORAGE : bucket « landing » (images du CMS vitrine)
+insert into storage.buckets (id, name, public) values ('landing','landing',true)
+  on conflict (id) do nothing;
+drop policy if exists "landing public read" on storage.objects;
+create policy "landing public read" on storage.objects for select using (bucket_id='landing');
+drop policy if exists "landing admin write" on storage.objects;
+create policy "landing admin write" on storage.objects for all
+  using (bucket_id='landing' and public.is_admin())
+  with check (bucket_id='landing' and public.is_admin());
+
 -- REALTIME
 do $$ begin
   alter publication supabase_realtime add table public.reports, public.cisterns,

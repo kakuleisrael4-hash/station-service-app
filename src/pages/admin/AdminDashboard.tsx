@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Megaphone, FilePlus2, Wallet, Gauge as GaugeIcon, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate } from 'lucide-react';
+import { Megaphone, FilePlus2, Wallet, Gauge as GaugeIcon, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown } from 'lucide-react';
+import { exportReportPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">Note</th>
+                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">Note</th><th className="pb-2 text-right">PDF</th>
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
                     {recent.map((r) => {
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
                           <td className="py-2 text-right tabular-nums">{fc(r.total_a_remettre)}</td>
                           <td className={`py-2 text-right tabular-nums ${r.manquant > 0 ? 'text-rose-400' : 'text-slate-500'}`}>{r.manquant > 0 ? fc(r.manquant) : '—'}</td>
                           <td className="py-2 text-right tabular-nums">{r.final_stars ?? Math.round((r.auto_score ?? 0) / 2)}★</td>
+                          <td className="py-2 text-right"><button onClick={() => exportReportPDF(r, p?.display_name ?? 'Pompiste')} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF"><FileDown className="ml-auto h-4 w-4" /></button></td>
                         </tr>
                       );
                     })}

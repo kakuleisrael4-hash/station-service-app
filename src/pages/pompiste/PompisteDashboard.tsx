@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Megaphone, LineChart as LineIcon, Wallet, Star, MessageSquare, Droplets, Fuel, TrendingDown } from 'lucide-react';
+import { Megaphone, LineChart as LineIcon, Wallet, Star, MessageSquare, Droplets, Fuel, TrendingDown, FileDown } from 'lucide-react';
+import { exportPayslipPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
@@ -142,7 +143,8 @@ export default function PompisteDashboard() {
       {tab === 'compte' && (
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
-            <SectionTitle icon={<Wallet className="h-5 w-5" />} title="Fiche de paie en direct" subtitle={`Période ${period}`} />
+            <SectionTitle icon={<Wallet className="h-5 w-5" />} title="Fiche de paie en direct" subtitle={`Période ${period}`}
+              right={<button onClick={() => exportPayslipPDF(me, period)} className="btn-ghost !py-1.5 !px-3"><FileDown className="h-4 w-4" /> PDF</button>} />
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/10">
                 <span className="text-slate-300">Salaire de base</span>

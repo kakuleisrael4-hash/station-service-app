@@ -9,6 +9,7 @@ import type { AppUser, PumpReading, Report } from '@/types';
 import type { NewDebtInput, NewExpenseInput, NewOrderInput, StationDB, StationData } from './db';
 import { getSupabase } from './supabaseClient';
 import { DEFAULT_LANDING } from '@/constants';
+import { fileToBlob } from './files';
 
 const n = (v: unknown) => (v == null ? 0 : Number(v));
 
@@ -241,6 +242,16 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (cur?.id != null) await sb.from('landing_page_content').update(payload).eq('id', cur.id);
       else await sb.from('landing_page_content').insert({ ...payload, id: true });
     },
+    async uploadImage(file) {
+      // Compresse puis téléverse vers le bucket Storage public « landing ».
+      const blob = await fileToBlob(file);
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await sb.storage.from('landing').upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error) throw new Error("Upload impossible. Le bucket « landing » existe-t-il ? Exécutez supabase/storage.sql. (" + error.message + ')');
+      return sb.storage.from('landing').getPublicUrl(path).data.publicUrl;
+    },
+
     async markNotificationRead(id) {
       await sb.from('notifications').update({ read: true }).eq('id', id);
     },

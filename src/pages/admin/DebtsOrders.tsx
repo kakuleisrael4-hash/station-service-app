@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { HandCoins, Truck, Plus, CheckCircle2, Clock, Loader2, Wallet } from 'lucide-react';
+import { HandCoins, Truck, Plus, CheckCircle2, Clock, Loader2, Wallet, FileDown } from 'lucide-react';
+import { exportDebtsPDF } from '@/lib/pdf';
 import { Card, SectionTitle, StatCard, EmptyState, Modal } from '@/components/ui';
 import { useData } from '@/context/DataContext';
 import { debtPaid, debtRemaining, recoverableDebtsFC } from '@/lib/selectors';
@@ -81,7 +82,7 @@ function DebtsTab({ debts, debtPayments, recoverable, addDebt, addDebtPayment }:
       </Card>
 
       <Card>
-        <SectionTitle title="Registre des dettes" />
+        <SectionTitle title="Registre des dettes" right={debts.length > 0 ? <button onClick={() => exportDebtsPDF(debts, debtPayments)} className="btn-ghost !py-1.5 !px-3"><FileDown className="h-4 w-4" /> Exporter PDF</button> : undefined} />
         {debts.length === 0 ? <EmptyState>Aucune dette.</EmptyState> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

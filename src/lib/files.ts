@@ -1,9 +1,7 @@
 // =====================================================================
-//  Conversion d'un fichier image en data-URL compressée.
-//  - En mode démo local, l'image est stockée dans le contenu (localStorage),
-//    donc on la redimensionne/compresse pour rester sous le quota (~5 Mo).
-//  - En prod Supabase, on téléverserait plutôt vers un bucket Storage et on
-//    stockerait l'URL publique (voir supabase/schema.sql).
+//  Traitement d'images côté client : redimensionnement + compression.
+//  - fileToDataUrl : data-URL (mode démo, stockée dans le contenu localStorage).
+//  - fileToBlob    : Blob compressé (mode Supabase, téléversé vers Storage).
 // =====================================================================
 
 export interface ImageOpts {
@@ -11,8 +9,13 @@ export interface ImageOpts {
   quality?: number; // 0..1 (JPEG)
 }
 
-export function fileToDataUrl(file: File, opts: ImageOpts = {}): Promise<string> {
-  const { maxDim = 1400, quality = 0.82 } = opts;
+interface Rendered {
+  canvas: HTMLCanvasElement;
+  type: 'image/png' | 'image/jpeg';
+}
+
+function render(file: File, opts: ImageOpts): Promise<Rendered> {
+  const { maxDim = 1400 } = opts;
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) return reject(new Error('Fichier non image.'));
     const reader = new FileReader();
@@ -30,12 +33,24 @@ export function fileToDataUrl(file: File, opts: ImageOpts = {}): Promise<string>
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('Canvas indisponible.'));
         ctx.drawImage(img, 0, 0, w, h);
-        // PNG conservé pour les logos à transparence, sinon JPEG compressé.
-        const isPng = file.type === 'image/png' && file.size < 400_000;
-        resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality));
+        // PNG conservé pour les petits logos à transparence, sinon JPEG compressé.
+        const type = file.type === 'image/png' && file.size < 400_000 ? 'image/png' : 'image/jpeg';
+        resolve({ canvas, type });
       };
       img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   });
+}
+
+export async function fileToDataUrl(file: File, opts: ImageOpts = {}): Promise<string> {
+  const { canvas, type } = await render(file, opts);
+  return canvas.toDataURL(type, opts.quality ?? 0.82);
+}
+
+export async function fileToBlob(file: File, opts: ImageOpts = {}): Promise<Blob> {
+  const { canvas, type } = await render(file, opts);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Conversion image échouée.'))), type, opts.quality ?? 0.82),
+  );
 }

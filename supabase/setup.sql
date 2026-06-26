@@ -448,7 +448,21 @@ create or replace view public.v_payroll as
          (base_salary - cumul_manquants_mois) as net_a_payer
   from public.pompiste_profiles where active;
 
--- ############ 2/3 — SÉCURITÉ RLS (rls.sql) ############
+-- 10) Auto-création du profil (rôle viewer) à chaque inscription Supabase Auth.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.users (id, email, full_name, role)
+  values (new.id, new.email,
+          coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 'viewer')
+  on conflict (id) do nothing;
+  return new;
+end $$;
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users for each row execute function public.handle_new_user();
+
+-- ############ 2/3 — SÉCURITÉ RLS + STORAGE (rls.sql) ############
 -- =====================================================================
 --  STATION KKC OIL — Row-Level Security v2
 --  Pompiste = HERMÉTIQUE aux menus financiers (ne voit que SES rapports).
@@ -542,6 +556,16 @@ create policy land_admin on public.landing_page_content for all using (public.is
 create policy notif_read on public.notifications for select using (user_id=auth.uid() or public.is_admin());
 create policy notif_update on public.notifications for update using (user_id=auth.uid());
 create policy notif_insert on public.notifications for insert with check (public.is_admin() or user_id=auth.uid());
+
+-- STORAGE : bucket « landing » (images du CMS vitrine)
+insert into storage.buckets (id, name, public) values ('landing','landing',true)
+  on conflict (id) do nothing;
+drop policy if exists "landing public read" on storage.objects;
+create policy "landing public read" on storage.objects for select using (bucket_id='landing');
+drop policy if exists "landing admin write" on storage.objects;
+create policy "landing admin write" on storage.objects for all
+  using (bucket_id='landing' and public.is_admin())
+  with check (bucket_id='landing' and public.is_admin());
 
 -- REALTIME
 do $$ begin
