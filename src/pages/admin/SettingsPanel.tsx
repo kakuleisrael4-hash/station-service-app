@@ -12,8 +12,16 @@ export default function SettingsPanel() {
   const { user } = useAuth();
   const {
     settings, pumps, cisterns, pompistes, users, expenseCategories,
-    updateSettings, updatePump, updateCisternCapacity, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
+    updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
   } = useData();
+
+  // --- Ajout d'un pompiste ---
+  const [newP, setNewP] = useState({ display_name: '', phone: '', base_salary: '' });
+  async function addNewPompiste() {
+    if (!newP.display_name.trim()) return;
+    await addPompiste({ display_name: newP.display_name.trim(), phone: newP.phone.trim(), base_salary: parseFloat(newP.base_salary) || 0 });
+    setNewP({ display_name: '', phone: '', base_salary: '' });
+  }
 
   // --- Prix & taux ---
   const [prices, setPrices] = useState({ essence: String(settings.essence_price), gasoil: String(settings.gasoil_price), taux: String(settings.taux_journalier) });
@@ -73,7 +81,14 @@ export default function SettingsPanel() {
 
       {/* FICHES EMPLOYÉS */}
       <Card>
-        <SectionTitle icon={<Users className="h-5 w-5" />} title="Fiches employés" subtitle="Salaires de base, coordonnées, statut" />
+        <SectionTitle icon={<Users className="h-5 w-5" />} title="Fiches employés" subtitle="Ajouter, renommer, salaires de base, statut" />
+        {/* Ajout d'un pompiste */}
+        <div className="mb-4 grid items-end gap-2 rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+          <div><label className="label">Nouveau pompiste</label><input className="field !py-2" placeholder="Nom complet" value={newP.display_name} onChange={(e) => setNewP({ ...newP, display_name: e.target.value })} /></div>
+          <input className="field !py-2" placeholder="Téléphone" value={newP.phone} onChange={(e) => setNewP({ ...newP, phone: e.target.value })} />
+          <input type="number" className="field !py-2" placeholder="Salaire de base (FC)" value={newP.base_salary} onChange={(e) => setNewP({ ...newP, base_salary: e.target.value })} />
+          <button onClick={addNewPompiste} disabled={!newP.display_name.trim()} className="btn-primary !py-2"><Plus className="h-4 w-4" /> Ajouter</button>
+        </div>
         <div className="space-y-2">
           {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, s) => user && updateSalary(id, s, user)} />)}
         </div>

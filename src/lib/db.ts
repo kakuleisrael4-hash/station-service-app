@@ -76,6 +76,11 @@ export interface NewOrderInput {
   deposit: number;
   order_date: string;
 }
+export interface NewPompisteInput {
+  display_name: string;
+  phone: string;
+  base_salary: number;
+}
 
 export interface StationDB {
   readonly isMock: boolean;
@@ -106,6 +111,7 @@ export interface StationDB {
   updateSettings(patch: Partial<Settings>): Promise<void>;
   updatePump(pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>): Promise<void>;
   updateCisternCapacity(cisternId: string, capacityL: number): Promise<void>;
+  addPompiste(input: NewPompisteInput): Promise<void>;
   updatePompiste(id: string, patch: Partial<PompisteProfile>): Promise<void>;
   updateUserRole(userId: string, role: Role): Promise<void>;
 

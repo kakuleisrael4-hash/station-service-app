@@ -18,10 +18,11 @@ from auth.users u
 where u.email in ('admin@kkc.cd','jean@kkc.cd','audit@kkc.cd')
 on conflict (id) do update set role = excluded.role, email = excluded.email;
 
--- 2) Relie le compte pompiste « jean@kkc.cd » à la fiche RH « Jean Mbayo ».
+-- 2) Relie le compte pompiste « jean@kkc.cd » à la fiche RH de départ « Pompiste 1 »
+--    (renommez-la ensuite dans Paramètres → Fiches employés).
 update public.pompiste_profiles p
 set user_id = (select id from public.users where email = 'jean@kkc.cd')
-where p.display_name = 'Jean Mbayo';
+where p.display_name = 'Pompiste 1' and p.user_id is null;
 
 -- Vérification
 select email, role from public.users order by role;

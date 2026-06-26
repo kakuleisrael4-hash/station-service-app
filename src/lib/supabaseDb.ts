@@ -223,6 +223,10 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.from('cisterns').update({ capacity_l: capacityL, updated_at: new Date().toISOString() }).eq('id', cisternId);
       if (error) throw new Error(error.message);
     },
+    async addPompiste(input) {
+      const { error } = await sb.from('pompiste_profiles').insert({ display_name: input.display_name, phone: input.phone || null, base_salary: input.base_salary || 0 });
+      if (error) throw new Error(error.message);
+    },
     async updatePompiste(id, patch) {
       await sb.from('pompiste_profiles').update(patch).eq('id', id);
     },

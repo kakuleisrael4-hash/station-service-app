@@ -551,16 +551,19 @@ do $$ begin
     public.announcements, public.stock_logs, public.settings, public.landing_page_content;
 exception when others then null; end $$;
 
--- ############ 3/3 — DONNÉES DE RÉFÉRENCE (seed.sql) ############
+-- ############ 3/3 — DONNÉES DE RÉFÉRENCE / DÉPART PROPRE (seed.sql) ############
 -- =====================================================================
 --  STATION KKC OIL — Données de référence (à exécuter après rls.sql)
---  Crée les 3 citernes, 4 pompes, catégories de dépenses et pompistes.
+--  DÉPART PROPRE : infrastructure (3 citernes VIDES + 4 pompes) +
+--  catégories de dépenses + 1 fiche pompiste de départ. Aucune donnée de démo.
+--  L'admin saisit ensuite le stock réel, les pompistes, les rapports, etc.
 -- =====================================================================
 
+-- Citernes vides : niveau réel à enregistrer via relevé physique ou 1re livraison.
 insert into public.cisterns (id, name, fuel, capacity_l, current_l, sale_price_fc) values
-  ('cit-gasoil', 'Citerne Gasoil',  'gasoil', 30000, 18000, 2430),
-  ('cit-super1', 'Citerne Super 1', 'super',  30000, 13500, 2440),
-  ('cit-super2', 'Citerne Super 2', 'super',  30000, 21600, 2440)
+  ('cit-gasoil', 'Citerne Gasoil',  'gasoil', 30000, 0, 2430),
+  ('cit-super1', 'Citerne Super 1', 'super',  30000, 0, 2440),
+  ('cit-super2', 'Citerne Super 2', 'super',  30000, 0, 2440)
 on conflict (id) do nothing;
 
 insert into public.pumps (id, label, fuel, cistern_id) values
@@ -578,8 +581,8 @@ insert into public.expense_categories (name, color) values
   ('Divers', '#a78bfa')
 on conflict do nothing;
 
-insert into public.pompiste_profiles (display_name, base_salary, cumul_manquants_mois, phone) values
-  ('Jean Mbayo',     450000, 0,    '+243 970 000 001'),
-  ('Esther Kalala',  450000, 5000, '+243 970 000 002'),
-  ('Patrick Ilunga', 420000, 0,    '+243 970 000 003')
+-- Une fiche pompiste de départ (reliée plus tard au compte « jean@kkc.cd » via auth_link.sql).
+-- L'admin ajoute/renomme les autres dans Paramètres → Fiches employés.
+insert into public.pompiste_profiles (display_name, base_salary, cumul_manquants_mois, phone)
+values ('Pompiste 1', 0, 0, '')
 on conflict do nothing;
