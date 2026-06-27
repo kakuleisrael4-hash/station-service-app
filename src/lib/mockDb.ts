@@ -16,8 +16,8 @@ import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v8';
-const SESSION_KEY = 'kkcoil.session.v8';
+const STORE_KEY = 'kkcoil.store.v9';
+const SESSION_KEY = 'kkcoil.session.v9';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
 const DEMO_PASSWORD = '1234';
 
@@ -120,7 +120,11 @@ export const mockDb: StationDB = {
   async loadAll() { return clone(store); },
 
   async createReport(draft, author) {
-    const c = computeReport(draft, { pumps: store.pumps, prices: { super: store.settings.essence_price, gasoil: store.settings.gasoil_price } });
+    const c = computeReport(draft, {
+      pumps: store.pumps,
+      prices: { super: store.settings.essence_price, gasoil: store.settings.gasoil_price },
+      buyPrices: { super: store.settings.essence_buy_price, gasoil: store.settings.gasoil_buy_price },
+    });
     const report: Report = {
       id: uid(), pompiste_id: draft.pompiste_id, author_id: author.id, report_date: draft.report_date,
       pump_readings: c.pumps, manquant: draft.manquant, taux_journalier: draft.taux_journalier,
@@ -131,7 +135,7 @@ export const mockDb: StationDB = {
       gasoil_litrage: c.gasoil_litrage, gasoil_montant: c.gasoil_montant,
       total_depenses: c.total_depenses, total_a_remettre: c.total_a_remettre,
       total_billetage_fc: c.total_billetage_fc, total_usd_fc: c.total_usd_fc,
-      total_encaisse: c.total_encaisse, ecart: c.ecart,
+      total_encaisse: c.total_encaisse, ecart: c.ecart, benefice: c.benefice,
       status: 'valide', validated_at: new Date().toISOString(), created_at: new Date().toISOString(),
     };
     store.reports = [report, ...store.reports];

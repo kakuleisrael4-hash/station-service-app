@@ -257,6 +257,45 @@ export interface CategorySpend {
   total: number;
 }
 
+// =================== RENTABILITÉ : BÉNÉFICES vs DÉPENSES =============
+export interface ProfitExpensePoint {
+  date: string;
+  benefices: number; // marge nette carburant
+  depenses: number; // toutes dépenses (FC)
+}
+export interface ProfitVsExpenses {
+  series: ProfitExpensePoint[];
+  totalBenefices: number;
+  totalDepenses: number;
+  resultat: number; // bénéfices - dépenses
+  deficit: boolean; // dépenses > bénéfices sur la période
+}
+
+/** Croise bénéfices carburant et dépenses par jour sur une période. */
+export function profitVsExpenses(reports: Report[], expenses: Expense[], period = currentPeriod()): ProfitVsExpenses {
+  const map = new Map<string, ProfitExpensePoint>();
+  const get = (d: string) => {
+    let e = map.get(d);
+    if (!e) { e = { date: d, benefices: 0, depenses: 0 }; map.set(d, e); }
+    return e;
+  };
+  reports
+    .filter((r) => r.status === 'valide' && r.report_date.startsWith(period))
+    .forEach((r) => { get(r.report_date).benefices += r.benefice || 0; });
+  expenses
+    .filter((e) => e.date.startsWith(period))
+    .forEach((ex) => { get(ex.date).depenses += ex.amount_fc || 0; });
+  const series = [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const totalBenefices = series.reduce((s, p) => s + p.benefices, 0);
+  const totalDepenses = series.reduce((s, p) => s + p.depenses, 0);
+  return { series, totalBenefices, totalDepenses, resultat: totalBenefices - totalDepenses, deficit: totalDepenses > totalBenefices };
+}
+
+/** Bénéfice cumulé total (tous rapports validés). */
+export function totalBenefice(reports: Report[]): number {
+  return reports.filter((r) => r.status === 'valide').reduce((s, r) => s + (r.benefice || 0), 0);
+}
+
 /** Dépenses agrégées par catégorie (pour le camembert analytique). */
 export function expensesByCategory(
   expenses: Expense[],

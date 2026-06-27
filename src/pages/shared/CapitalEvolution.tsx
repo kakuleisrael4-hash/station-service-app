@@ -1,6 +1,7 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { TrendingUp, Wallet, Droplets, HandCoins, Landmark, Truck } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
+import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { useData } from '@/context/DataContext';
 import { computeCapital } from '@/lib/selectors';
 import { fc, shortDate, fullDate } from '@/lib/format';
@@ -60,6 +61,8 @@ export default function CapitalEvolution() {
           </div>
         )}
       </Card>
+
+      <ProfitExpensesChart />
     </div>
   );
 }

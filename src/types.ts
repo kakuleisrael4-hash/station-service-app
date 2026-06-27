@@ -181,8 +181,10 @@ export interface Announcement {
 
 /** Paramètres globaux modifiables par l'Admin. */
 export interface Settings {
-  essence_price: number; // FC/L Super
-  gasoil_price: number; // FC/L Gasoil
+  essence_price: number; // Prix de VENTE Super (FC/L)
+  gasoil_price: number; // Prix de VENTE Gasoil (FC/L)
+  essence_buy_price: number; // Prix d'ACHAT Super (FC/L)
+  gasoil_buy_price: number; // Prix d'ACHAT Gasoil (FC/L)
   taux_journalier: number; // USD -> FC
   updated_at: string;
 }
@@ -248,6 +250,7 @@ export interface Report {
   total_usd_fc: number;
   total_encaisse: number; // X
   ecart: number;
+  benefice: number; // marge nette générée par le rapport (FC)
 
   status: ReportStatus;
   validated_at?: string | null;
@@ -299,4 +302,7 @@ export interface ComputedReport {
   ecart: number;
   is_balanced: boolean;
   auto_score: number;
+  marge_super: number; // PV - PA Super (FC/L)
+  marge_gasoil: number; // PV - PA Gasoil (FC/L)
+  benefice: number; // litrage_super*marge_super + litrage_gasoil*marge_gasoil
 }

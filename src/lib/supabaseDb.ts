@@ -46,6 +46,7 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
     total_usd_fc: n(row.total_usd_fc),
     total_encaisse: n(row.total_encaisse),
     ecart: n(row.ecart),
+    benefice: n(row.benefice),
     status: row.status,
     validated_at: row.validated_at,
     created_at: row.created_at,
@@ -118,6 +119,8 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         settings: {
           essence_price: n(s?.essence_price) || 2440,
           gasoil_price: n(s?.gasoil_price) || 2430,
+          essence_buy_price: n(s?.essence_buy_price) || 2200,
+          gasoil_buy_price: n(s?.gasoil_buy_price) || 2200,
           taux_journalier: n(s?.taux_journalier) || 2850,
           updated_at: s?.updated_at ?? new Date().toISOString(),
         },

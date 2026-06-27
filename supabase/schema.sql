@@ -100,6 +100,7 @@ create table if not exists public.reports (
   total_usd_fc numeric(16,2) not null default 0,
   total_encaisse numeric(16,2) not null default 0,
   ecart numeric(16,2) not null default 0,
+  benefice numeric(16,2) not null default 0,   -- marge nette du rapport (FC)
   status report_status not null default 'brouillon',
   validated_at timestamptz, created_at timestamptz not null default now(),
   constraint reports_balance_chk check (status <> 'valide' or ecart = 0),
@@ -190,8 +191,10 @@ create table if not exists public.announcements (
 -- -------------------- PARAMÈTRES GLOBAUX (singleton) -----------------
 create table if not exists public.settings (
   id boolean primary key default true,     -- une seule ligne (id = true)
-  essence_price numeric(10,2) not null default 2440,
-  gasoil_price  numeric(10,2) not null default 2430,
+  essence_price numeric(10,2) not null default 2440,        -- prix de vente Super
+  gasoil_price  numeric(10,2) not null default 2430,        -- prix de vente Gasoil
+  essence_buy_price numeric(10,2) not null default 2200,    -- prix d'achat Super
+  gasoil_buy_price  numeric(10,2) not null default 2200,    -- prix d'achat Gasoil
   taux_journalier numeric(10,2) not null default 2850,
   updated_at timestamptz not null default now(),
   constraint settings_singleton check (id)
@@ -305,8 +308,9 @@ drop trigger if exists trg_expenses_sync on public.expenses;
 create trigger trg_expenses_sync after insert or update or delete on public.expenses
   for each row execute function public.expenses_sync();
 
--- 4) Recalcul du rapport (Y, X, écart, note)
+-- 4) Recalcul du rapport (Y, X, écart, note, bénéfice via marges)
 create or replace function public.reports_recompute() returns trigger language plpgsql as $$
+declare v_es numeric; v_gs numeric; v_eb numeric; v_gb numeric;
 begin
   new.total_a_remettre := new.essence_montant + new.gasoil_montant - new.total_depenses - new.manquant;
   new.total_billetage_fc := public.billetage_sum_fc(new.billetage);
@@ -314,6 +318,11 @@ begin
   new.total_encaisse := new.total_billetage_fc + new.total_usd_fc;
   new.ecart := new.total_encaisse - new.total_a_remettre;
   new.auto_score := case when new.manquant<=0 then 10 when new.manquant<5000 then 9 when new.manquant<10000 then 7 else 0 end;
+  -- Bénéfice = litrage * (prix de vente - prix d'achat), par carburant.
+  select essence_price, gasoil_price, essence_buy_price, gasoil_buy_price
+    into v_es, v_gs, v_eb, v_gb from public.settings limit 1;
+  new.benefice := new.essence_litrage * (coalesce(v_es,0) - coalesce(v_eb,0))
+                + new.gasoil_litrage  * (coalesce(v_gs,0) - coalesce(v_gb,0));
   return new;
 end $$;
 drop trigger if exists trg_reports_recompute on public.reports;

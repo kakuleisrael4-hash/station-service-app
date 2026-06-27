@@ -4,12 +4,13 @@
 //  Réplique des triggers SQL (public.reports_recompute).
 // =====================================================================
 import type { Billetage, ComputedReport, Expense, FuelType, Pump, PumpReading, ReportDraft } from '@/types';
-import { BALANCE_TOLERANCE, BILLETS_FC, PRICE_BY_FUEL, PUMPS, autoScoreFromManquant, pumpById } from '@/constants';
+import { BALANCE_TOLERANCE, BILLETS_FC, BUY_PRICE_BY_FUEL, PRICE_BY_FUEL, PUMPS, autoScoreFromManquant, pumpById } from '@/constants';
 
 /** Contexte de calcul : config pompes + prix courants (défaut = constantes). */
 export interface CalcContext {
   pumps?: Pump[];
-  prices?: Record<FuelType, number>;
+  prices?: Record<FuelType, number>; // prix de vente
+  buyPrices?: Record<FuelType, number>; // prix d'achat (pour la marge)
 }
 
 const num = (v: unknown): number => {
@@ -78,6 +79,13 @@ export function computeReport(d: ReportDraft, ctx: CalcContext = {}): ComputedRe
   const ecart = total_encaisse - total_a_remettre;
   const is_balanced = Math.abs(ecart) <= BALANCE_TOLERANCE;
 
+  // Marge bénéficiaire (Prix de Vente - Prix d'Achat) et bénéfice du rapport.
+  const sale = ctx.prices ?? PRICE_BY_FUEL;
+  const buy = ctx.buyPrices ?? BUY_PRICE_BY_FUEL;
+  const marge_super = num(sale.super) - num(buy.super);
+  const marge_gasoil = num(sale.gasoil) - num(buy.gasoil);
+  const benefice = essence_litrage * marge_super + gasoil_litrage * marge_gasoil;
+
   return {
     pumps,
     essence_litrage,
@@ -92,6 +100,9 @@ export function computeReport(d: ReportDraft, ctx: CalcContext = {}): ComputedRe
     ecart,
     is_balanced,
     auto_score: autoScoreFromManquant(manquant),
+    marge_super,
+    marge_gasoil,
+    benefice,
   };
 }
 

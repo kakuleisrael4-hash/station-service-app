@@ -64,7 +64,11 @@ export default function NewReportForm() {
     admin_comment: f.admin_comment,
   }), [f, stars, pumps, openings]);
 
-  const calcCtx = useMemo(() => ({ pumps, prices: { super: settings.essence_price, gasoil: settings.gasoil_price } }), [pumps, settings]);
+  const calcCtx = useMemo(() => ({
+    pumps,
+    prices: { super: settings.essence_price, gasoil: settings.gasoil_price },
+    buyPrices: { super: settings.essence_buy_price, gasoil: settings.gasoil_buy_price },
+  }), [pumps, settings]);
   const c = useMemo(() => computeReport(draft, calcCtx), [draft, calcCtx]);
   const errors = useMemo(() => validateDraft(draft, c), [draft, c]);
   const touched = c.total_encaisse > 0 || draft.manquant > 0 || c.total_a_remettre > 0;
@@ -224,6 +228,10 @@ export default function NewReportForm() {
               <div className="flex items-end justify-between">
                 <span className="text-slate-300">TOTAL À REMETTRE <span className="text-xs text-slate-500">(Y)</span></span>
                 <span className="text-2xl font-black tabular-nums text-energy-400">{fc(c.total_a_remettre)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between rounded-lg bg-energy-500/10 px-3 py-1.5">
+                <span className="text-xs text-energy-300">Bénéfice généré (marge)</span>
+                <span className="font-bold tabular-nums text-energy-300">{fc(c.benefice)}</span>
               </div>
             </dl>
           </Card>

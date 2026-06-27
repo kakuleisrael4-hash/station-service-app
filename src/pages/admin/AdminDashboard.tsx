@@ -4,6 +4,7 @@ import { exportReportPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
+import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
@@ -67,6 +68,7 @@ export default function AdminDashboard() {
               <Gauge key={s.id} label={s.name} current={s.current_l} capacity={s.capacity_l} color={s.fuel === 'gasoil' ? 'fuel' : 'energy'} />
             ))}
           </div>
+          <ProfitExpensesChart />
           <Card>
             <SectionTitle title="Rapports récents" subtitle="Derniers rapports validés" />
             {recent.length === 0 ? <EmptyState>Aucun rapport.</EmptyState> : (

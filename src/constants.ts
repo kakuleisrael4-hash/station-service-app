@@ -24,9 +24,17 @@ export const FUEL_LABEL: Record<FuelType, string> = {
 };
 
 /** Réglages par défaut (modifiables dans le menu Paramètres). */
+/** Prix d'achat fournisseur par défaut (FC/L) — modifiables dans Paramètres. */
+export const BUY_PRICE_BY_FUEL: Record<FuelType, number> = {
+  super: 2200,
+  gasoil: 2200,
+};
+
 export const DEFAULT_SETTINGS: Settings = {
-  essence_price: PRICE_BY_FUEL.super,
+  essence_price: PRICE_BY_FUEL.super, // prix de vente
   gasoil_price: PRICE_BY_FUEL.gasoil,
+  essence_buy_price: BUY_PRICE_BY_FUEL.super, // prix d'achat
+  gasoil_buy_price: BUY_PRICE_BY_FUEL.gasoil,
   taux_journalier: 2850,
   updated_at: new Date().toISOString(),
 };

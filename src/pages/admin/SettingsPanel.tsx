@@ -23,13 +23,24 @@ export default function SettingsPanel() {
     setNewP({ display_name: '', phone: '', base_salary: '', base_salary_usd: '' });
   }
 
-  // --- Prix & taux ---
-  const [prices, setPrices] = useState({ essence: String(settings.essence_price), gasoil: String(settings.gasoil_price), taux: String(settings.taux_journalier) });
+  // --- Prix (achat/vente) & taux ---
+  const [prices, setPrices] = useState({
+    essence: String(settings.essence_price), gasoil: String(settings.gasoil_price),
+    essenceBuy: String(settings.essence_buy_price), gasoilBuy: String(settings.gasoil_buy_price),
+    taux: String(settings.taux_journalier),
+  });
   const [savingPrices, setSavingPrices] = useState(false);
+  const num = (v: string) => parseFloat(v) || 0;
+  const margeSuper = num(prices.essence) - num(prices.essenceBuy);
+  const margeGasoil = num(prices.gasoil) - num(prices.gasoilBuy);
   async function savePrices() {
     setSavingPrices(true);
     try {
-      await updateSettings({ essence_price: parseFloat(prices.essence) || 0, gasoil_price: parseFloat(prices.gasoil) || 0, taux_journalier: parseFloat(prices.taux) || 0 });
+      await updateSettings({
+        essence_price: num(prices.essence), gasoil_price: num(prices.gasoil),
+        essence_buy_price: num(prices.essenceBuy), gasoil_buy_price: num(prices.gasoilBuy),
+        taux_journalier: num(prices.taux),
+      });
     } finally { setSavingPrices(false); }
   }
 
@@ -44,12 +55,28 @@ export default function SettingsPanel() {
 
       {/* PRIX & TAUX */}
       <Card>
-        <SectionTitle icon={<Fuel className="h-5 w-5" />} title="Prix & taux du jour" subtitle="Appliqués aux nouveaux rapports et à la valeur du stock" />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div><label className="label">Prix Super (FC/L)</label><input type="number" className="field" value={prices.essence} onChange={(e) => setPrices({ ...prices, essence: e.target.value })} /></div>
-          <div><label className="label">Prix Gasoil (FC/L)</label><input type="number" className="field" value={prices.gasoil} onChange={(e) => setPrices({ ...prices, gasoil: e.target.value })} /></div>
-          <div><label className="label">Taux USD du jour</label><input type="number" className="field" value={prices.taux} onChange={(e) => setPrices({ ...prices, taux: e.target.value })} /></div>
+        <SectionTitle icon={<Fuel className="h-5 w-5" />} title="Prix d'achat / vente & marges" subtitle="La marge (Vente − Achat) alimente le calcul des bénéfices à chaque rapport" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* SUPER */}
+          <div className="rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20">
+            <p className="mb-2 text-sm font-semibold text-energy-300">SUPER</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="label">Achat (FC/L)</label><input type="number" className="field !py-2" value={prices.essenceBuy} onChange={(e) => setPrices({ ...prices, essenceBuy: e.target.value })} /></div>
+              <div><label className="label">Vente (FC/L)</label><input type="number" className="field !py-2" value={prices.essence} onChange={(e) => setPrices({ ...prices, essence: e.target.value })} /></div>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Marge unitaire : <span className={`font-bold tabular-nums ${margeSuper < 0 ? 'text-rose-400' : 'text-energy-400'}`}>{margeSuper.toLocaleString('fr-FR')} FC/L</span></p>
+          </div>
+          {/* GASOIL */}
+          <div className="rounded-xl bg-fuel-500/[0.06] p-3 ring-1 ring-fuel-400/20">
+            <p className="mb-2 text-sm font-semibold text-fuel-300">GASOIL</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="label">Achat (FC/L)</label><input type="number" className="field !py-2" value={prices.gasoilBuy} onChange={(e) => setPrices({ ...prices, gasoilBuy: e.target.value })} /></div>
+              <div><label className="label">Vente (FC/L)</label><input type="number" className="field !py-2" value={prices.gasoil} onChange={(e) => setPrices({ ...prices, gasoil: e.target.value })} /></div>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">Marge unitaire : <span className={`font-bold tabular-nums ${margeGasoil < 0 ? 'text-rose-400' : 'text-fuel-400'}`}>{margeGasoil.toLocaleString('fr-FR')} FC/L</span></p>
+          </div>
         </div>
+        <div className="mt-3 max-w-xs"><label className="label">Taux USD du jour</label><input type="number" className="field" value={prices.taux} onChange={(e) => setPrices({ ...prices, taux: e.target.value })} /></div>
         <button onClick={savePrices} disabled={savingPrices} className="btn-primary mt-4">{savingPrices ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Enregistrer les prix</button>
       </Card>
 

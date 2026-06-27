@@ -7,6 +7,7 @@ import { TrendingUp, PieChart as PieIcon, Wallet, Droplets, Users, Megaphone, La
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
+import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
@@ -104,6 +105,8 @@ export default function ViewerDashboard() {
               <Gauge key={s.id} label={s.name} current={s.current_l} capacity={s.capacity_l} color={s.fuel === 'gasoil' ? 'fuel' : 'energy'} />
             ))}
           </div>
+
+          <ProfitExpensesChart />
 
           <Card>
             <SectionTitle icon={<Wallet className="h-5 w-5" />} title="Tableau de bord RH global" />
