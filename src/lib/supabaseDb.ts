@@ -228,20 +228,21 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (error) throw new Error(error.message);
     },
     async addPompiste(input) {
-      // Création du compte via l'Edge Function sécurisée (auth.admin.createUser
-      // côté serveur) : l'admin garde sa session, le mot de passe n'est jamais exposé.
-      const { data, error } = await sb.functions.invoke('create-pompiste', {
-        body: {
+      // Création du compte via la fonction backend sécurisée (auth.admin.createUser
+      // côté serveur, clé service_role) : l'admin garde sa session, pas de signUp client.
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch('/.netlify/functions/create-pompiste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({
           email: input.email, password: input.password, display_name: input.display_name,
           phone: input.phone, base_salary: input.base_salary, base_salary_usd: input.base_salary_usd,
-        },
+        }),
       });
-      if (error) {
-        let msg = error.message;
-        try { const ctx = await (error as any).context?.json?.(); if (ctx?.error) msg = ctx.error; } catch { /* ignore */ }
-        throw new Error('Création du compte impossible : ' + msg + ' (la fonction « create-pompiste » est-elle déployée ?)');
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || (out as any)?.error) {
+        throw new Error((out as any)?.error || `Création du compte impossible (HTTP ${res.status}). La variable SUPABASE_SERVICE_ROLE_KEY est-elle définie sur Netlify ?`);
       }
-      if ((data as any)?.error) throw new Error((data as any).error);
     },
     async updatePompiste(id, patch) {
       await sb.from('pompiste_profiles').update(patch).eq('id', id);

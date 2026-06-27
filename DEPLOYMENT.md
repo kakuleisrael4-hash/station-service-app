@@ -52,19 +52,26 @@ Copiez `.env.example` vers `.env`, renseignez les 2 valeurs, `npm run dev` (sino
 > et la sécurité par rôle est appliquée par **Row-Level Security** (le pompiste reste hermétique
 > aux menus financiers).
 
-### Edge Function : création de comptes pompistes par l'admin
+### Création de comptes pompistes par l'admin (backend sécurisé)
 
 Pour que l'admin crée le compte d'un pompiste (e-mail + mot de passe) **sans se
-déconnecter**, l'app appelle une Edge Function qui utilise `auth.admin.createUser`
-(clé service_role, jamais exposée au client).
+déconnecter**, l'app appelle une **fonction backend** qui utilise `auth.admin.createUser`
+(clé `service_role`, jamais exposée au client).
 
-**Déploiement** — Dashboard Supabase → **Edge Functions** → *Deploy a new function* :
-- Nom : **`create-pompiste`** (exactement).
-- Colle le contenu de [`supabase/functions/create-pompiste/index.ts`](supabase/functions/create-pompiste/index.ts) → **Deploy**.
-- Aucune variable à configurer (`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` sont injectées automatiquement). Laisse « Verify JWT » activé.
+**Voie utilisée (recommandée) — Netlify Function** : [`netlify/functions/create-pompiste.mts`](netlify/functions/create-pompiste.mts)
+se **déploie automatiquement** avec le site. Il suffit d'**ajouter une variable d'env** :
 
-(CLI équivalent : `supabase functions deploy create-pompiste`.)
-Sans cette fonction, le bouton « Créer le pompiste + son compte » renverra une erreur explicite.
+- Supabase → **Settings → API** → copie la clé **`service_role`** (secrète).
+- Netlify → **Site settings → Environment variables** → ajoute :
+  `SUPABASE_SERVICE_ROLE_KEY = <clé service_role>` → **Trigger deploy**.
+
+> Sans cette variable, le bouton « Créer le pompiste + son compte » renverra une erreur explicite.
+> ⚠️ La clé `service_role` ne doit JAMAIS être mise dans le code client ni dans une variable `VITE_…`.
+
+**Alternative — Supabase Edge Function** : le même code existe en
+[`supabase/functions/create-pompiste/index.ts`](supabase/functions/create-pompiste/index.ts)
+(déploiement via `supabase functions deploy create-pompiste`). Dans ce cas, remplacez l'appel
+`fetch('/.netlify/functions/create-pompiste')` par `sb.functions.invoke('create-pompiste')`.
 
 ### Images du CMS vitrine en production
 

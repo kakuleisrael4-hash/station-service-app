@@ -2,8 +2,15 @@
   command = "npm run build"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [build.environment]
   NODE_VERSION = "20"
+  # Création de comptes pompistes (fonction create-pompiste) : ajoutez aussi
+  #   SUPABASE_SERVICE_ROLE_KEY = <clé service_role Supabase>
+  # dans Site settings > Environment variables.
   # base reste '/' (racine) : on ne définit PAS VITE_BASE ici.
   # Pour activer Supabase en prod, ajoutez dans Netlify > Site settings > Environment variables :
   #   VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY (puis redeploy).
