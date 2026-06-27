@@ -7,7 +7,7 @@
   node_bundler = "esbuild"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   # Création de comptes pompistes (fonction create-pompiste) : ajoutez aussi
   #   SUPABASE_SERVICE_ROLE_KEY = <clé service_role Supabase>
   # dans Site settings > Environment variables.
