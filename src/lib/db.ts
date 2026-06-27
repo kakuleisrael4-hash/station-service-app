@@ -120,6 +120,8 @@ export interface StationDB {
   updatePump(pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>): Promise<void>;
   updateCisternCapacity(cisternId: string, capacityL: number): Promise<void>;
   addPompiste(input: NewPompisteInput): Promise<void>;
+  /** Suppression totale : fiche RH + compte Auth lié (rapports passés -> pompiste_id NULL). */
+  deletePompiste(pompisteId: string): Promise<void>;
   updatePompiste(id: string, patch: Partial<PompisteProfile>): Promise<void>;
   updateUserRole(userId: string, role: Role): Promise<void>;
 

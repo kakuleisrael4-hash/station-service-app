@@ -326,6 +326,20 @@ export const mockDb: StationDB = {
     }
     emit();
   },
+  async deletePompiste(pompisteId) {
+    const p = store.pompistes.find((x) => x.id === pompisteId);
+    if (!p) return;
+    // Conserve l'historique des ventes/capital : on délie les rapports (pompiste_id null).
+    store.reports = store.reports.map((r) => (r.pompiste_id === pompisteId ? { ...r, pompiste_id: null as any } : r));
+    store.salaryHistory = store.salaryHistory.filter((h) => h.pompiste_id !== pompisteId);
+    store.pompistes = store.pompistes.filter((x) => x.id !== pompisteId);
+    // Supprime le compte de connexion lié + son mot de passe.
+    if (p.user_id) {
+      store.users = store.users.filter((u) => u.id !== p.user_id);
+      const pw = loadPw(); delete pw[p.user_id]; savePw(pw);
+    }
+    emit();
+  },
   async updatePompiste(id, patch: Partial<PompisteProfile>) {
     const p = store.pompistes.find((x) => x.id === id);
     if (p) { Object.assign(p, patch); emit(); }

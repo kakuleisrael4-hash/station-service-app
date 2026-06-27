@@ -21,6 +21,7 @@ interface DataCtx extends StationData {
   updatePump: (pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>) => Promise<void>;
   updateCisternCapacity: (cisternId: string, capacityL: number) => Promise<void>;
   addPompiste: (input: NewPompisteInput) => Promise<void>;
+  deletePompiste: (pompisteId: string) => Promise<void>;
   updatePompiste: (id: string, patch: Partial<PompisteProfile>) => Promise<void>;
   updateUserRole: (userId: string, role: Role) => Promise<void>;
   updateLanding: (content: LandingContent) => Promise<void>;
@@ -112,13 +113,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updatePump = useCallback(async (pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>) => { await db.updatePump(pumpId, patch); await refresh(); }, [db, refresh]);
   const updateCisternCapacity = useCallback(async (cisternId: string, capacityL: number) => { await db.updateCisternCapacity(cisternId, capacityL); await refresh(); }, [db, refresh]);
   const addPompiste = useCallback(async (input: NewPompisteInput) => { await db.addPompiste(input); await refresh(); }, [db, refresh]);
+  const deletePompiste = useCallback(async (pompisteId: string) => { await db.deletePompiste(pompisteId); await refresh(); }, [db, refresh]);
   const updatePompiste = useCallback(async (id: string, patch: Partial<PompisteProfile>) => { await db.updatePompiste(id, patch); await refresh(); }, [db, refresh]);
   const updateUserRole = useCallback(async (userId: string, role: Role) => { await db.updateUserRole(userId, role); await refresh(); }, [db, refresh]);
   const updateLanding = useCallback(async (content: LandingContent) => { await db.updateLanding(content); await refresh(); }, [db, refresh]);
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, updateSalary, addExpenseCategory, addExpense, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, updateSalary, addExpenseCategory, addExpense, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

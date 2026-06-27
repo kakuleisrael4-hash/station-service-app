@@ -244,6 +244,16 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         throw new Error((out as any)?.error || `Création du compte impossible (HTTP ${res.status}). La variable SUPABASE_SERVICE_ROLE_KEY est-elle définie sur Netlify ?`);
       }
     },
+    async deletePompiste(pompisteId) {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch('/.netlify/functions/delete-pompiste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ pompiste_id: pompisteId }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || (out as any)?.error) throw new Error((out as any)?.error || `Suppression impossible (HTTP ${res.status}).`);
+    },
     async updatePompiste(id, patch) {
       await sb.from('pompiste_profiles').update(patch).eq('id', id);
     },

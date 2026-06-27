@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database } from 'lucide-react';
-import { Card, SectionTitle } from '@/components/ui';
+import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database, Trash2, AlertTriangle } from 'lucide-react';
+import { Card, SectionTitle, Modal } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { liters } from '@/lib/format';
-import type { Cistern, Role } from '@/types';
+import type { Cistern, PompisteProfile, Role } from '@/types';
 
 const ROLES: Role[] = ['admin', 'pompiste', 'viewer'];
 
@@ -12,8 +12,23 @@ export default function SettingsPanel() {
   const { user } = useAuth();
   const {
     settings, pumps, cisterns, pompistes, users, expenseCategories,
-    updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
+    updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
   } = useData();
+
+  // --- Suppression d'un pompiste ---
+  const [delTarget, setDelTarget] = useState<PompisteProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
+  async function confirmDelete() {
+    if (!delTarget) return;
+    setDeleting(true); setDelErr(null);
+    try {
+      await deletePompiste(delTarget.id);
+      setDelTarget(null);
+    } catch (e) {
+      setDelErr(e instanceof Error ? e.message : 'Suppression impossible.');
+    } finally { setDeleting(false); }
+  }
 
   // --- Ajout d'un pompiste (avec création du compte de connexion) ---
   const blankP = { display_name: '', phone: '', base_salary: '', base_salary_usd: '', email: '', password: '' };
@@ -139,7 +154,7 @@ export default function SettingsPanel() {
           </button>
         </div>
         <div className="space-y-2">
-          {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, salary) => user && updateSalary(id, salary, user)} />)}
+          {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, salary) => user && updateSalary(id, salary, user)} onDelete={() => { setDelErr(null); setDelTarget(p); }} />)}
         </div>
       </Card>
 
@@ -170,6 +185,25 @@ export default function SettingsPanel() {
           <button onClick={() => { if (cat.name.trim()) { addExpenseCategory(cat.name.trim(), cat.color); setCat({ name: '', color: '#10b981' }); } }} className="btn-ghost !px-3"><Plus className="h-4 w-4" /></button>
         </div>
       </Card>
+
+      {/* CONFIRMATION DE SUPPRESSION */}
+      <Modal open={!!delTarget} onClose={() => !deleting && setDelTarget(null)} title="Supprimer définitivement">
+        <div className="mb-4 flex items-start gap-3 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-500/30">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+          <p className="text-sm text-slate-200">
+            Êtes-vous sûr de vouloir supprimer définitivement <span className="font-bold">{delTarget?.display_name}</span> ?
+            Son compte de connexion et sa fiche RH seront supprimés. <span className="text-rose-300">Cette action est irréversible.</span>
+            <span className="mt-1 block text-xs text-slate-400">Les rapports passés sont conservés (l'historique des ventes et du capital n'est pas perdu).</span>
+          </p>
+        </div>
+        {delErr && <p className="mb-3 text-sm text-rose-400">{delErr}</p>}
+        <div className="flex gap-2">
+          <button onClick={() => setDelTarget(null)} disabled={deleting} className="btn-ghost flex-1">Annuler</button>
+          <button onClick={confirmDelete} disabled={deleting} className="btn-danger flex-1">
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Supprimer définitivement
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -194,7 +228,7 @@ function CisternRow({ cistern, onSave }: { cistern: Cistern; onSave: (id: string
   );
 }
 
-function EmployeeRow({ pompiste, onSavePatch, onSaveSalary }: { pompiste: any; onSavePatch: (id: string, patch: any) => void; onSaveSalary: (id: string, salary: { base_salary: number; base_salary_usd: number }) => void }) {
+function EmployeeRow({ pompiste, onSavePatch, onSaveSalary, onDelete }: { pompiste: any; onSavePatch: (id: string, patch: any) => void; onSaveSalary: (id: string, salary: { base_salary: number; base_salary_usd: number }) => void; onDelete: () => void }) {
   const [name, setName] = useState(pompiste.display_name);
   const [phone, setPhone] = useState(pompiste.phone ?? '');
   const [salFc, setSalFc] = useState(String(pompiste.base_salary));
@@ -208,13 +242,14 @@ function EmployeeRow({ pompiste, onSavePatch, onSaveSalary }: { pompiste: any; o
   }
 
   return (
-    <div className="grid items-center gap-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10 sm:grid-cols-[1.3fr_1fr_0.9fr_0.9fr_auto_auto]">
+    <div className="grid items-center gap-2 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/10 sm:grid-cols-[1.3fr_1fr_0.9fr_0.9fr_auto_auto_auto]">
       <input className="field !py-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom" />
       <input className="field !py-2" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Téléphone" />
       <input type="number" className="field !py-2" value={salFc} onChange={(e) => setSalFc(e.target.value)} placeholder="Salaire FC" title="Part FC" />
       <input type="number" className="field !py-2" value={salUsd} onChange={(e) => setSalUsd(e.target.value)} placeholder="Salaire USD" title="Part USD" />
       <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-energy-500" /> Actif</label>
-      <button onClick={save} className="btn-ghost !py-1.5 !px-3"><Save className="h-4 w-4" /></button>
+      <button onClick={save} className="btn-ghost !py-1.5 !px-3" title="Enregistrer"><Save className="h-4 w-4" /></button>
+      <button onClick={onDelete} className="btn-ghost !py-1.5 !px-3 text-rose-400 hover:bg-rose-500/15" title="Supprimer définitivement"><Trash2 className="h-4 w-4" /></button>
     </div>
   );
 }

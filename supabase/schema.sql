@@ -80,7 +80,9 @@ create table if not exists public.expense_categories (
 -- --------------------------- RAPPORTS --------------------------------
 create table if not exists public.reports (
   id uuid primary key default gen_random_uuid(),
-  pompiste_id uuid not null references public.pompiste_profiles (id),
+  -- nullable + ON DELETE SET NULL : si un pompiste est supprimé, ses rapports
+  -- restent (historique des ventes / capital préservé), juste détachés.
+  pompiste_id uuid references public.pompiste_profiles (id) on delete set null,
   author_id uuid references public.users (id),
   report_date date not null default current_date,
   manquant numeric(14,2) not null default 0,
