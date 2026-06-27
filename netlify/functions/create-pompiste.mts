@@ -24,6 +24,14 @@ const json = (body: unknown, status = 200) =>
 
 export default async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  // Diagnostic SÛR : liste uniquement les NOMS des variables SUPABASE_* visibles
+  // par la fonction (jamais les valeurs). À retirer une fois tout vérifié.
+  if (req.method === 'GET') {
+    return json({
+      hasServiceKey: !!SERVICE,
+      supabaseEnvKeys: Object.keys(process.env).filter((k) => /SUPABASE/i.test(k)).sort(),
+    });
+  }
   if (req.method !== 'POST') return json({ error: 'Méthode non autorisée.' }, 405);
   if (!SERVICE) return json({ error: 'SUPABASE_SERVICE_ROLE_KEY non configurée sur Netlify.' }, 500);
 
