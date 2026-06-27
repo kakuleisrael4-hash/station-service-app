@@ -52,6 +52,20 @@ Copiez `.env.example` vers `.env`, renseignez les 2 valeurs, `npm run dev` (sino
 > et la sécurité par rôle est appliquée par **Row-Level Security** (le pompiste reste hermétique
 > aux menus financiers).
 
+### Edge Function : création de comptes pompistes par l'admin
+
+Pour que l'admin crée le compte d'un pompiste (e-mail + mot de passe) **sans se
+déconnecter**, l'app appelle une Edge Function qui utilise `auth.admin.createUser`
+(clé service_role, jamais exposée au client).
+
+**Déploiement** — Dashboard Supabase → **Edge Functions** → *Deploy a new function* :
+- Nom : **`create-pompiste`** (exactement).
+- Colle le contenu de [`supabase/functions/create-pompiste/index.ts`](supabase/functions/create-pompiste/index.ts) → **Deploy**.
+- Aucune variable à configurer (`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` sont injectées automatiquement). Laisse « Verify JWT » activé.
+
+(CLI équivalent : `supabase functions deploy create-pompiste`.)
+Sans cette fonction, le bouton « Créer le pompiste + son compte » renverra une erreur explicite.
+
 ### Images du CMS vitrine en production
 
 En mode démo, les images sont stockées en data-URL. En production, créez un bucket public

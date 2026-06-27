@@ -18,8 +18,13 @@ import type { NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, St
 
 const STORE_KEY = 'kkcoil.store.v9';
 const SESSION_KEY = 'kkcoil.session.v9';
+const PW_KEY = 'kkcoil.pw.v9';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
 const DEMO_PASSWORD = '1234';
+
+// Mots de passe des comptes créés par l'admin (mode démo local uniquement).
+const loadPw = (): Record<string, string> => { try { return JSON.parse(localStorage.getItem(PW_KEY) || '{}'); } catch { return {}; } };
+const savePw = (m: Record<string, string>) => localStorage.setItem(PW_KEY, JSON.stringify(m));
 
 // --------------------------- SEED DE PRODUCTION ----------------------
 function seed(): StationData {
@@ -105,9 +110,11 @@ export const mockDb: StationDB = {
   },
   async signIn(email, password) {
     const acc = store.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (!acc || password !== DEMO_PASSWORD) throw new Error('Identifiants incorrects. (Démo : mot de passe « 1234 »)');
-    localStorage.setItem(SESSION_KEY, acc.id);
-    return acc;
+    const custom = acc ? loadPw()[acc.id] : undefined;
+    const ok = acc && (password === DEMO_PASSWORD || password === custom);
+    if (!ok) throw new Error('Identifiants incorrects. (Comptes de démo : mot de passe « 1234 »)');
+    localStorage.setItem(SESSION_KEY, acc!.id);
+    return acc!;
   },
   async signInDemo(role: Role) {
     const u = store.users.find((x) => x.role === role);
@@ -297,11 +304,26 @@ export const mockDb: StationDB = {
     }
   },
   async addPompiste(input: NewPompisteInput) {
-    store.pompistes = [...store.pompistes, {
-      id: uid(), user_id: null, display_name: input.display_name, phone: input.phone || null,
-      photo_url: null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0,
-      cumul_manquants_mois: 0, current_period: currentPeriod(), active: true,
-    }];
+    const email = (input.email || '').trim().toLowerCase();
+    // Crée un vrai compte de connexion + sa fiche RH liée (équiv. de l'Edge Function en prod).
+    if (email) {
+      if (store.users.some((u) => u.email.toLowerCase() === email)) throw new Error('Cet e-mail est déjà utilisé.');
+      const userId = uid(), profileId = uid();
+      store.users = [...store.users, { id: userId, email, full_name: input.display_name, role: 'pompiste', pompiste_id: profileId }];
+      store.pompistes = [...store.pompistes, {
+        id: profileId, user_id: userId, display_name: input.display_name, phone: input.phone || null,
+        photo_url: null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0,
+        cumul_manquants_mois: 0, current_period: currentPeriod(), active: true,
+      }];
+      const pw = loadPw(); pw[userId] = input.password || DEMO_PASSWORD; savePw(pw);
+    } else {
+      // Pas d'e-mail : simple fiche RH sans compte de connexion.
+      store.pompistes = [...store.pompistes, {
+        id: uid(), user_id: null, display_name: input.display_name, phone: input.phone || null,
+        photo_url: null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0,
+        cumul_manquants_mois: 0, current_period: currentPeriod(), active: true,
+      }];
+    }
     emit();
   },
   async updatePompiste(id, patch: Partial<PompisteProfile>) {

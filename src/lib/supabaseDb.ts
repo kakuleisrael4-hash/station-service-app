@@ -228,8 +228,20 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (error) throw new Error(error.message);
     },
     async addPompiste(input) {
-      const { error } = await sb.from('pompiste_profiles').insert({ display_name: input.display_name, phone: input.phone || null, base_salary: input.base_salary || 0, base_salary_usd: input.base_salary_usd || 0 });
-      if (error) throw new Error(error.message);
+      // Création du compte via l'Edge Function sécurisée (auth.admin.createUser
+      // côté serveur) : l'admin garde sa session, le mot de passe n'est jamais exposé.
+      const { data, error } = await sb.functions.invoke('create-pompiste', {
+        body: {
+          email: input.email, password: input.password, display_name: input.display_name,
+          phone: input.phone, base_salary: input.base_salary, base_salary_usd: input.base_salary_usd,
+        },
+      });
+      if (error) {
+        let msg = error.message;
+        try { const ctx = await (error as any).context?.json?.(); if (ctx?.error) msg = ctx.error; } catch { /* ignore */ }
+        throw new Error('Création du compte impossible : ' + msg + ' (la fonction « create-pompiste » est-elle déployée ?)');
+      }
+      if ((data as any)?.error) throw new Error((data as any).error);
     },
     async updatePompiste(id, patch) {
       await sb.from('pompiste_profiles').update(patch).eq('id', id);

@@ -15,12 +15,25 @@ export default function SettingsPanel() {
     updateSettings, updatePump, updateCisternCapacity, addPompiste, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
   } = useData();
 
-  // --- Ajout d'un pompiste ---
-  const [newP, setNewP] = useState({ display_name: '', phone: '', base_salary: '', base_salary_usd: '' });
+  // --- Ajout d'un pompiste (avec création du compte de connexion) ---
+  const blankP = { display_name: '', phone: '', base_salary: '', base_salary_usd: '', email: '', password: '' };
+  const [newP, setNewP] = useState(blankP);
+  const [addingP, setAddingP] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+  const canAddP = newP.display_name.trim() && newP.email.trim() && newP.password.length >= 6;
   async function addNewPompiste() {
-    if (!newP.display_name.trim()) return;
-    await addPompiste({ display_name: newP.display_name.trim(), phone: newP.phone.trim(), base_salary: parseFloat(newP.base_salary) || 0, base_salary_usd: parseFloat(newP.base_salary_usd) || 0 });
-    setNewP({ display_name: '', phone: '', base_salary: '', base_salary_usd: '' });
+    if (!canAddP) return;
+    setAddingP(true); setAddErr(null);
+    try {
+      await addPompiste({
+        display_name: newP.display_name.trim(), phone: newP.phone.trim(),
+        base_salary: parseFloat(newP.base_salary) || 0, base_salary_usd: parseFloat(newP.base_salary_usd) || 0,
+        email: newP.email.trim(), password: newP.password,
+      });
+      setNewP(blankP);
+    } catch (e) {
+      setAddErr(e instanceof Error ? e.message : "Échec de la création.");
+    } finally { setAddingP(false); }
   }
 
   // --- Prix (achat/vente) & taux ---
@@ -110,12 +123,20 @@ export default function SettingsPanel() {
       <Card>
         <SectionTitle icon={<Users className="h-5 w-5" />} title="Fiches employés" subtitle="Ajouter, renommer, salaires de base, statut" />
         {/* Ajout d'un pompiste */}
-        <div className="mb-4 grid items-end gap-2 rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20 sm:grid-cols-[1.3fr_1fr_1fr_1fr_auto]">
-          <div><label className="label">Nouveau pompiste</label><input className="field !py-2" placeholder="Nom complet" value={newP.display_name} onChange={(e) => setNewP({ ...newP, display_name: e.target.value })} /></div>
-          <input className="field !py-2" placeholder="Téléphone" value={newP.phone} onChange={(e) => setNewP({ ...newP, phone: e.target.value })} />
-          <input type="number" className="field !py-2" placeholder="Salaire FC" value={newP.base_salary} onChange={(e) => setNewP({ ...newP, base_salary: e.target.value })} />
-          <input type="number" className="field !py-2" placeholder="Salaire USD" value={newP.base_salary_usd} onChange={(e) => setNewP({ ...newP, base_salary_usd: e.target.value })} />
-          <button onClick={addNewPompiste} disabled={!newP.display_name.trim()} className="btn-primary !py-2"><Plus className="h-4 w-4" /> Ajouter</button>
+        <div className="mb-4 rounded-xl bg-energy-500/[0.06] p-3 ring-1 ring-energy-400/20">
+          <p className="mb-2 text-sm font-semibold text-energy-300">Ajouter un pompiste (crée son compte de connexion)</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input className="field !py-2" placeholder="Nom complet *" value={newP.display_name} onChange={(e) => setNewP({ ...newP, display_name: e.target.value })} />
+            <input className="field !py-2" type="email" placeholder="E-mail de connexion *" value={newP.email} onChange={(e) => setNewP({ ...newP, email: e.target.value })} />
+            <input className="field !py-2" type="text" placeholder="Mot de passe initial * (6+ car.)" value={newP.password} onChange={(e) => setNewP({ ...newP, password: e.target.value })} />
+            <input className="field !py-2" placeholder="Téléphone" value={newP.phone} onChange={(e) => setNewP({ ...newP, phone: e.target.value })} />
+            <input type="number" className="field !py-2" placeholder="Salaire FC" value={newP.base_salary} onChange={(e) => setNewP({ ...newP, base_salary: e.target.value })} />
+            <input type="number" className="field !py-2" placeholder="Salaire USD" value={newP.base_salary_usd} onChange={(e) => setNewP({ ...newP, base_salary_usd: e.target.value })} />
+          </div>
+          {addErr && <p className="mt-2 text-xs text-rose-400">{addErr}</p>}
+          <button onClick={addNewPompiste} disabled={!canAddP || addingP} className="btn-primary mt-3 !py-2">
+            {addingP ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Créer le pompiste + son compte
+          </button>
         </div>
         <div className="space-y-2">
           {pompistes.map((p) => <EmployeeRow key={p.id} pompiste={p} onSavePatch={updatePompiste} onSaveSalary={(id, salary) => user && updateSalary(id, salary, user)} />)}

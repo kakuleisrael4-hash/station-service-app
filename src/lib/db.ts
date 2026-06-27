@@ -82,6 +82,8 @@ export interface NewPompisteInput {
   phone: string;
   base_salary: number;
   base_salary_usd: number;
+  email: string; // compte de connexion du pompiste
+  password: string; // mot de passe initial
 }
 export interface SalaryParts {
   base_salary: number;
