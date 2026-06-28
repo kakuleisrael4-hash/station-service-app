@@ -14,11 +14,11 @@ import { computeCapital } from './selectors';
 import { fileToDataUrl } from './files';
 import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
-import type { NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
+import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v9';
-const SESSION_KEY = 'kkcoil.session.v9';
-const PW_KEY = 'kkcoil.pw.v9';
+const STORE_KEY = 'kkcoil.store.v10';
+const SESSION_KEY = 'kkcoil.session.v10';
+const PW_KEY = 'kkcoil.pw.v10';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
 const DEMO_PASSWORD = '1234';
 
@@ -58,7 +58,7 @@ function seed(): StationData {
   return {
     users, pompistes, reports: [], cisterns, pumps, fuelMovements: [],
     expenseCategories, expenses: [], debts: [], debtPayments: [], supplierOrders: [],
-    capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
+    cashEntries: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
     notifications, salaryHistory: [],
   };
 }
@@ -68,7 +68,7 @@ function seed(): StationData {
 const REQUIRED_KEYS: (keyof StationData)[] = [
   'users', 'pompistes', 'reports', 'cisterns', 'pumps', 'fuelMovements',
   'expenseCategories', 'expenses', 'debts', 'debtPayments', 'supplierOrders',
-  'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory',
+  'cashEntries', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory',
 ];
 
 function load(): StationData {
@@ -92,7 +92,7 @@ function emit() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); listen
 
 /** Recalcule et upsert le point de capital du jour. */
 function snapshotCapital() {
-  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier);
+  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries);
   const date = todayISO();
   const point: CapitalPoint = { date, ...b };
   const idx = store.capitalHistory.findIndex((p) => p.date === date);
@@ -203,6 +203,11 @@ export const mockDb: StationDB = {
   async addExpense(input: NewExpenseInput) {
     const amount_fc = input.currency === 'USD' ? input.amount * store.settings.taux_journalier : input.amount;
     store.expenses = [{ id: uid(), category_id: input.category_id, description: input.description, amount: input.amount, currency: input.currency, amount_fc, date: input.date, report_id: null, created_at: new Date().toISOString() }, ...store.expenses];
+    snapshotCapital();
+    emit();
+  },
+  async addCashEntry(input: NewCashInput) {
+    store.cashEntries = [{ id: uid(), currency: input.currency, amount: input.amount, motif: input.motif, date: input.date, created_by: 'u-admin', created_at: new Date().toISOString() }, ...store.cashEntries];
     snapshotCapital();
     emit();
   },

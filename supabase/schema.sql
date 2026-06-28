@@ -163,6 +163,17 @@ create table if not exists public.supplier_orders (
   order_date date not null default current_date, delivered_at timestamptz
 );
 
+-- ----------------- APPORTS DE FONDS (entrées hors rapport) -----------
+create table if not exists public.cash_entries (
+  id uuid primary key default gen_random_uuid(),
+  currency currency not null default 'FC',
+  amount numeric(16,2) not null,
+  motif text not null,                       -- origine des fonds (obligatoire)
+  date date not null default current_date,
+  created_by uuid references public.users (id),
+  created_at timestamptz not null default now()
+);
+
 -- ------------------------ HISTORIQUE CAPITAL -------------------------
 create table if not exists public.capital_history (
   date date primary key,
@@ -424,10 +435,12 @@ begin
   -- Caisse à double compartiment (FC + USD physiques)
   v_fc := coalesce((select sum(total_billetage_fc) from public.reports where status='valide'),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='FC'),0)
+        + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
         - coalesce((select sum(case when status='livre' then purchase_price else deposit end) from public.supplier_orders),0);
   v_usd := coalesce((select sum(total_usd) from public.reports where status='valide'),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
+        + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0);
   v_caisse := v_fc + v_usd * v_taux;
   v_stock := coalesce((select sum(current_l*sale_price_fc) from public.cisterns),0);
@@ -452,6 +465,8 @@ drop trigger if exists trg_cap_expenses on public.expenses;
 create trigger trg_cap_expenses after insert or update or delete on public.expenses for each statement execute function public.trg_snapshot_capital();
 drop trigger if exists trg_cap_payments on public.debt_payments;
 create trigger trg_cap_payments after insert on public.debt_payments for each statement execute function public.trg_snapshot_capital();
+drop trigger if exists trg_cap_cash on public.cash_entries;
+create trigger trg_cap_cash after insert or update or delete on public.cash_entries for each statement execute function public.trg_snapshot_capital();
 
 -- Vue paie : net = base - cumul manquants
 create or replace view public.v_payroll as

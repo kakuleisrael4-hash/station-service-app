@@ -124,6 +124,18 @@ export interface Expense {
   created_at?: string;
 }
 
+// ------------------- APPORT DE FONDS (hors rapport) ------------------
+/** Entrée de caisse indépendante des ventes (apport gérant, fonds de roulement, prêt…). */
+export interface CashEntry {
+  id: string;
+  currency: Currency;
+  amount: number; // dans la devise choisie
+  motif: string; // origine des fonds (obligatoire)
+  date: string;
+  created_by?: string | null;
+  created_at?: string;
+}
+
 // ----------------------------- DETTES --------------------------------
 export interface Debt {
   id: string;

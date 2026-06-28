@@ -77,7 +77,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     async signOut() { await sb.auth.signOut(); },
 
     async loadAll(): Promise<StationData> {
-      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, capital, stockLogs, announcements, settingsRow, notifs, salary, landingRow] =
+      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, capital, stockLogs, announcements, settingsRow, notifs, salary, landingRow] =
         await Promise.all([
           sb.from('users').select('*'),
           sb.from('pompiste_profiles').select('*').order('display_name'),
@@ -91,6 +91,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           sb.from('debts').select('*').order('date', { ascending: false }),
           sb.from('debt_payments').select('*'),
           sb.from('supplier_orders').select('*').order('order_date', { ascending: false }),
+          sb.from('cash_entries').select('*').order('date', { ascending: false }),
           sb.from('capital_history').select('*').order('date'),
           sb.from('stock_logs').select('*').order('created_at', { ascending: false }),
           sb.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -113,6 +114,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         debts: (debts.data ?? []).map((d: any) => ({ ...d, liters: n(d.liters), total_amount: n(d.total_amount), currency: d.currency ?? 'FC' })) as any,
         debtPayments: (payments.data ?? []).map((p: any) => ({ ...p, amount: n(p.amount), currency: p.currency ?? 'FC' })) as any,
         supplierOrders: (orders.data ?? []).map((o: any) => ({ ...o, volume_l: n(o.volume_l), purchase_price: n(o.purchase_price), deposit: n(o.deposit) })) as any,
+        cashEntries: (cash.data ?? []).map((c: any) => ({ ...c, amount: n(c.amount) })) as any,
         capitalHistory: (capital.data ?? []).map((c: any) => ({ ...c, caisse: n(c.caisse), stock_value: n(c.stock_value), debts: n(c.debts), orders_value: n(c.orders_value), capital: n(c.capital) })) as any,
         stockLogs: (stockLogs.data ?? []).map((l: any) => ({ ...l, theoretical_l: n(l.theoretical_l), physical_l: n(l.physical_l), ecart: n(l.ecart) })) as any,
         announcements: (announcements.data ?? []) as any,
@@ -176,6 +178,10 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     },
     async addExpense(input: NewExpenseInput) {
       const { error } = await sb.from('expenses').insert({ category_id: input.category_id, description: input.description, amount: input.amount, currency: input.currency, date: input.date });
+      if (error) throw new Error(error.message);
+    },
+    async addCashEntry(input) {
+      const { error } = await sb.from('cash_entries').insert({ currency: input.currency, amount: input.amount, motif: input.motif, date: input.date });
       if (error) throw new Error(error.message);
     },
     async addDebt(input: NewDebtInput) {

@@ -1,9 +1,7 @@
--- =====================================================================
---  STATION KKC OIL — SETUP COMPLET (Supabase > SQL Editor)
---  = schema.sql + rls.sql + seed.sql
--- =====================================================================
+-- STATION KKC OIL — SETUP COMPLET (Supabase > SQL Editor)
+-- = schema.sql + rls.sql + seed.sql
 
--- ############ 1/3 — SCHÉMA & LOGIQUE MÉTIER ############
+-- ###### 1/3 SCHÉMA ######
 -- =====================================================================
 --  STATION KKC OIL — Schéma BD v2 (PostgreSQL / Supabase)
 --  Architecture physique (3 citernes / 4 pompes) + finance avancée.
@@ -167,6 +165,17 @@ create table if not exists public.supplier_orders (
   volume_l numeric(14,2) not null, purchase_price numeric(16,2) not null default 0,
   deposit numeric(16,2) not null default 0, status order_status not null default 'en_cours',
   order_date date not null default current_date, delivered_at timestamptz
+);
+
+-- ----------------- APPORTS DE FONDS (entrées hors rapport) -----------
+create table if not exists public.cash_entries (
+  id uuid primary key default gen_random_uuid(),
+  currency currency not null default 'FC',
+  amount numeric(16,2) not null,
+  motif text not null,                       -- origine des fonds (obligatoire)
+  date date not null default current_date,
+  created_by uuid references public.users (id),
+  created_at timestamptz not null default now()
 );
 
 -- ------------------------ HISTORIQUE CAPITAL -------------------------
@@ -430,10 +439,12 @@ begin
   -- Caisse à double compartiment (FC + USD physiques)
   v_fc := coalesce((select sum(total_billetage_fc) from public.reports where status='valide'),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='FC'),0)
+        + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
         - coalesce((select sum(case when status='livre' then purchase_price else deposit end) from public.supplier_orders),0);
   v_usd := coalesce((select sum(total_usd) from public.reports where status='valide'),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
+        + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0);
   v_caisse := v_fc + v_usd * v_taux;
   v_stock := coalesce((select sum(current_l*sale_price_fc) from public.cisterns),0);
@@ -458,6 +469,8 @@ drop trigger if exists trg_cap_expenses on public.expenses;
 create trigger trg_cap_expenses after insert or update or delete on public.expenses for each statement execute function public.trg_snapshot_capital();
 drop trigger if exists trg_cap_payments on public.debt_payments;
 create trigger trg_cap_payments after insert on public.debt_payments for each statement execute function public.trg_snapshot_capital();
+drop trigger if exists trg_cap_cash on public.cash_entries;
+create trigger trg_cap_cash after insert or update or delete on public.cash_entries for each statement execute function public.trg_snapshot_capital();
 
 -- Vue paie : net = base - cumul manquants
 create or replace view public.v_payroll as
@@ -479,7 +492,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
 
--- ############ 2/3 — SÉCURITÉ RLS + STORAGE ############
+-- ###### 2/3 RLS + STORAGE ######
 -- =====================================================================
 --  STATION KKC OIL — Row-Level Security v2
 --  Pompiste = HERMÉTIQUE aux menus financiers (ne voit que SES rapports).
@@ -508,6 +521,7 @@ alter table public.expenses            enable row level security;
 alter table public.debts               enable row level security;
 alter table public.debt_payments       enable row level security;
 alter table public.supplier_orders     enable row level security;
+alter table public.cash_entries        enable row level security;
 alter table public.capital_history     enable row level security;
 alter table public.stock_logs          enable row level security;
 alter table public.announcements       enable row level security;
@@ -534,6 +548,7 @@ create policy mov_admin on public.fuel_movements for all using (public.is_admin(
 -- CAISSE & DÉPENSES : admin uniquement
 create policy cat_admin on public.expense_categories for all using (public.is_admin()) with check (public.is_admin());
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
+create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
 
 -- RAPPORTS : admin (tout) · viewer (lecture) · pompiste (SES rapports validés)
 create policy reports_read on public.reports for select
@@ -589,10 +604,11 @@ do $$ begin
   alter publication supabase_realtime add table public.reports, public.cisterns,
     public.pompiste_profiles, public.debts, public.supplier_orders,
     public.capital_history, public.fuel_movements, public.notifications,
-    public.announcements, public.stock_logs, public.settings, public.landing_page_content;
+    public.announcements, public.stock_logs, public.settings, public.landing_page_content,
+    public.cash_entries;
 exception when others then null; end $$;
 
--- ############ 3/3 — DONNÉES DE RÉFÉRENCE / DÉPART PROPRE ############
+-- ###### 3/3 DONNÉES DE RÉFÉRENCE ######
 -- =====================================================================
 --  STATION KKC OIL — Données de référence (à exécuter après rls.sql)
 --  DÉPART PROPRE : infrastructure (3 citernes VIDES + 4 pompes) +

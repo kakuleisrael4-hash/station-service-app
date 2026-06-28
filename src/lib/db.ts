@@ -7,6 +7,7 @@ import type {
   Announcement,
   AppUser,
   CapitalPoint,
+  CashEntry,
   Cistern,
   Currency,
   Debt,
@@ -43,6 +44,7 @@ export interface StationData {
   debts: Debt[];
   debtPayments: DebtPayment[];
   supplierOrders: SupplierOrder[];
+  cashEntries: CashEntry[];
   capitalHistory: CapitalPoint[];
   stockLogs: StockLog[];
   announcements: Announcement[];
@@ -77,6 +79,12 @@ export interface NewOrderInput {
   deposit: number;
   order_date: string;
 }
+export interface NewCashInput {
+  currency: Currency;
+  amount: number;
+  motif: string;
+  date: string;
+}
 export interface NewPompisteInput {
   display_name: string;
   phone: string;
@@ -105,6 +113,7 @@ export interface StationDB {
   updateSalary(pompisteId: string, salary: SalaryParts, changedBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;
+  addCashEntry(input: NewCashInput): Promise<void>;
   addDebt(input: NewDebtInput): Promise<void>;
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;

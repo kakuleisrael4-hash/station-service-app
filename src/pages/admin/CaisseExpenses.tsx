@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote } from 'lucide-react';
+import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import { useData } from '@/context/DataContext';
 import { computeCaisse, expensesByCategory } from '@/lib/selectors';
-import { fc, usd, todayISO, currentPeriod } from '@/lib/format';
+import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
 import type { Currency } from '@/types';
 
 export default function CaisseExpenses() {
-  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, settings, addExpense, addExpenseCategory } = useData();
+  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, settings, addExpense, addCashEntry, addExpenseCategory } = useData();
   const taux = settings.taux_journalier;
-  const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux);
+  const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux, cashEntries);
   const period = currentPeriod();
   const monthExp = expenses.filter((e) => e.date.startsWith(period)).reduce((s, e) => s + e.amount_fc, 0);
   const byCat = expensesByCategory(expenses, expenseCategories);
@@ -18,6 +18,19 @@ export default function CaisseExpenses() {
   const [exp, setExp] = useState<{ category_id: string; description: string; amount: string; currency: Currency; date: string }>({ category_id: '', description: '', amount: '', currency: 'FC', date: todayISO() });
   const [cat, setCat] = useState({ name: '', color: '#10b981' });
   const [busy, setBusy] = useState(false);
+
+  // --- Apport de fonds (hors rapport) ---
+  const [apport, setApport] = useState<{ currency: Currency; amount: string; motif: string; date: string }>({ currency: 'FC', amount: '', motif: '', date: todayISO() });
+  const [apportBusy, setApportBusy] = useState(false);
+  async function submitApport() {
+    const amount = parseFloat(apport.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !apport.motif.trim()) return;
+    setApportBusy(true);
+    try {
+      await addCashEntry({ currency: apport.currency, amount, motif: apport.motif.trim(), date: apport.date });
+      setApport({ currency: 'FC', amount: '', motif: '', date: todayISO() });
+    } finally { setApportBusy(false); }
+  }
 
   async function submitExpense() {
     const amount = parseFloat(exp.amount);
@@ -42,6 +55,42 @@ export default function CaisseExpenses() {
         <StatCard label="Caisse totale (FC)" value={fc(caisse.total_fc)} icon={<Wallet className="h-4 w-4" />} accent="text-energy-400" />
         <StatCard label="Dépenses du mois" value={fc(monthExp)} accent="text-rose-400" />
       </div>
+
+      {/* APPORT DE FONDS (hors rapport) — alimente directement la caisse */}
+      <Card className="border-energy-400/20">
+        <SectionTitle icon={<PlusCircle className="h-5 w-5" />} title="Apport de fonds (hors rapport)" subtitle="Injecter de l'argent dans la caisse, indépendamment des ventes" />
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div>
+            <label className="label">Devise</label>
+            <select className="field" value={apport.currency} onChange={(e) => setApport({ ...apport, currency: e.target.value as Currency })}>
+              <option value="FC">FC (Franc)</option><option value="USD">USD (Dollar)</option>
+            </select>
+          </div>
+          <div><label className="label">Montant ({apport.currency})</label><input type="number" className="field" placeholder="0" value={apport.amount} onChange={(e) => setApport({ ...apport, amount: e.target.value })} /></div>
+          <div className="sm:col-span-2"><label className="label">Motif / source *</label><input className="field" placeholder="Ex: Apport personnel gérant, Fonds de roulement, Prêt bancaire…" value={apport.motif} onChange={(e) => setApport({ ...apport, motif: e.target.value })} /></div>
+          <div><label className="label">Date</label><input type="date" className="field" value={apport.date} onChange={(e) => setApport({ ...apport, date: e.target.value })} /></div>
+        </div>
+        {apport.currency === 'USD' && apport.amount && <p className="mt-2 text-sm text-energy-300">≈ <span className="font-bold tabular-nums">{fc((parseFloat(apport.amount) || 0) * taux)}</span> au taux du jour.</p>}
+        <button onClick={submitApport} disabled={apportBusy || !apport.motif.trim() || !(parseFloat(apport.amount) > 0)} className="btn-primary mt-3">{apportBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Injecter dans la caisse</button>
+
+        {cashEntries.length > 0 && (
+          <div className="mt-4 max-h-48 overflow-y-auto border-t border-white/10 pt-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Historique des apports (Entrée · Apport externe)</p>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-white/5">
+                {cashEntries.slice(0, 20).map((c) => (
+                  <tr key={c.id}>
+                    <td className="py-2 text-slate-400">{shortDate(c.date)}</td>
+                    <td className="py-2"><span className="chip bg-energy-500/15 text-energy-300">Entrée · Apport externe</span></td>
+                    <td className="py-2 text-slate-300">{c.motif}</td>
+                    <td className="py-2 text-right font-semibold tabular-nums text-energy-400">+ {c.currency === 'USD' ? usd(c.amount) : fc(c.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Saisie dépense hors-rapport */}

@@ -2,7 +2,7 @@
 //  Sélecteurs / agrégations dérivées (purs, testables).
 // =====================================================================
 import type {
-  Cistern, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SupplierOrder,
+  CashEntry, Cistern, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SupplierOrder,
 } from '@/types';
 import { currentPeriod } from './format';
 
@@ -192,6 +192,7 @@ export function computeCaisse(
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
+  cashEntries: CashEntry[] = [],
 ): CaisseBalance {
   const valides = reports.filter((r) => r.status === 'valide');
   const salesFC = valides.reduce((s, r) => s + r.total_billetage_fc, 0);
@@ -202,8 +203,10 @@ export function computeCaisse(
   const expFC = stand.filter((e) => e.currency === 'FC').reduce((s, e) => s + e.amount, 0);
   const expUSD = stand.filter((e) => e.currency === 'USD').reduce((s, e) => s + e.amount, 0);
   const fournisseurs = orders.reduce((s, o) => s + orderCashOut(o), 0); // décaissements en FC
-  const fc = salesFC + payFC - expFC - fournisseurs;
-  const usd = salesUSD + payUSD - expUSD;
+  const apportFC = cashEntries.filter((c) => c.currency === 'FC').reduce((s, c) => s + c.amount, 0);
+  const apportUSD = cashEntries.filter((c) => c.currency === 'USD').reduce((s, c) => s + c.amount, 0);
+  const fc = salesFC + payFC + apportFC - expFC - fournisseurs;
+  const usd = salesUSD + payUSD + apportUSD - expUSD;
   return { fc, usd, total_fc: fc + usd * taux };
 }
 
@@ -244,8 +247,9 @@ export function computeCapital(
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
+  cashEntries: CashEntry[] = [],
 ): CapitalBreakdown {
-  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux).total_fc;
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries).total_fc;
   const sv = stockValue(cisterns);
   const dr = recoverableDebtsFC(debts, debtPayments, taux);
   const ov = pendingOrdersValue(orders);
