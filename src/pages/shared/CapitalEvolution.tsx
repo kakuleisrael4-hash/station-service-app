@@ -7,8 +7,8 @@ import { computeCapital } from '@/lib/selectors';
 import { fc, shortDate, fullDate } from '@/lib/format';
 
 export default function CapitalEvolution() {
-  const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, capitalHistory, settings } = useData();
-  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, settings.taux_journalier);
+  const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, cashEntries, capitalHistory, settings } = useData();
+  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, settings.taux_journalier, cashEntries);
 
   // On s'assure que le dernier point reflète le capital courant calculé.
   const history = [...capitalHistory].sort((a, b2) => a.date.localeCompare(b2.date));
