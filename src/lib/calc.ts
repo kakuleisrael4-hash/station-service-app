@@ -110,9 +110,9 @@ export function validateDraft(d: ReportDraft, c: ComputedReport): string[] {
   const errors: string[] = [];
   if (!d.pompiste_id) errors.push('Sélectionnez un pompiste.');
   c.pumps.forEach((p) => {
-    if (p.index_close <= p.index_open) {
+    if (p.index_close < p.index_open) {
       const pump = pumpById(p.pump_id);
-      errors.push(`${pump?.label ?? p.pump_id} : l'index de fermeture doit être strictement supérieur à l'ouverture (${p.index_open.toLocaleString('fr-FR')}).`);
+      errors.push(`${pump?.label ?? p.pump_id} : l'index de fermeture ne peut pas être inférieur à l'ouverture (${p.index_open.toLocaleString('fr-FR')}).`);
     }
   });
   if (d.expenses.some((e) => num(e.amount) > 0 && !e.category_id))

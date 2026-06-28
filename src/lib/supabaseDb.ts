@@ -48,6 +48,8 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
     ecart: n(row.ecart),
     benefice: n(row.benefice),
     status: row.status,
+    closed: !!row.closed,
+    closed_at: row.closed_at,
     validated_at: row.validated_at,
     created_at: row.created_at,
   };
@@ -77,7 +79,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     async signOut() { await sb.auth.signOut(); },
 
     async loadAll(): Promise<StationData> {
-      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, capital, stockLogs, announcements, settingsRow, notifs, salary, landingRow] =
+      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, closings, capital, stockLogs, announcements, settingsRow, notifs, salary, landingRow] =
         await Promise.all([
           sb.from('users').select('*'),
           sb.from('pompiste_profiles').select('*').order('display_name'),
@@ -92,6 +94,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           sb.from('debt_payments').select('*'),
           sb.from('supplier_orders').select('*').order('order_date', { ascending: false }),
           sb.from('cash_entries').select('*').order('date', { ascending: false }),
+          sb.from('daily_closings').select('*').order('closed_at', { ascending: false }),
           sb.from('capital_history').select('*').order('date'),
           sb.from('stock_logs').select('*').order('created_at', { ascending: false }),
           sb.from('announcements').select('*').order('created_at', { ascending: false }),
@@ -115,6 +118,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         debtPayments: (payments.data ?? []).map((p: any) => ({ ...p, amount: n(p.amount), currency: p.currency ?? 'FC' })) as any,
         supplierOrders: (orders.data ?? []).map((o: any) => ({ ...o, volume_l: n(o.volume_l), purchase_price: n(o.purchase_price), deposit: n(o.deposit) })) as any,
         cashEntries: (cash.data ?? []).map((c: any) => ({ ...c, amount: n(c.amount) })) as any,
+        dailyClosings: (closings.data ?? []).map((d: any) => ({ ...d, report_ids: d.report_ids ?? [], report_count: n(d.report_count), total_super_l: n(d.total_super_l), total_gasoil_l: n(d.total_gasoil_l), total_volume_l: n(d.total_volume_l), total_encaisse: n(d.total_encaisse), total_benefice: n(d.total_benefice) })) as any,
         capitalHistory: (capital.data ?? []).map((c: any) => ({ ...c, caisse: n(c.caisse), stock_value: n(c.stock_value), debts: n(c.debts), orders_value: n(c.orders_value), capital: n(c.capital) })) as any,
         stockLogs: (stockLogs.data ?? []).map((l: any) => ({ ...l, theoretical_l: n(l.theoretical_l), physical_l: n(l.physical_l), ecart: n(l.ecart) })) as any,
         announcements: (announcements.data ?? []) as any,
@@ -168,6 +172,25 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       return mapReport(upd, readings ?? [], exps ?? []);
     },
 
+    async closeDay(reportIds) {
+      if (!reportIds.length) return;
+      // Totaux des rapports sélectionnés (avant clôture)
+      const { data: rows } = await sb.from('reports').select('*').in('id', reportIds).eq('closed', false);
+      const sel = rows ?? [];
+      if (!sel.length) return;
+      const t = sel.reduce((a: any, r: any) => ({
+        sup: a.sup + n(r.essence_litrage), gas: a.gas + n(r.gasoil_litrage),
+        enc: a.enc + n(r.total_encaisse), ben: a.ben + n(r.benefice),
+      }), { sup: 0, gas: 0, enc: 0, ben: 0 });
+      // Clôture -> le trigger applique stock/RH/closed_at par rapport
+      const { error } = await sb.from('reports').update({ closed: true }).in('id', sel.map((r: any) => r.id)).eq('closed', false);
+      if (error) throw new Error(error.message);
+      await sb.from('daily_closings').insert({
+        report_ids: sel.map((r: any) => r.id), report_count: sel.length,
+        total_super_l: t.sup, total_gasoil_l: t.gas, total_volume_l: t.sup + t.gas,
+        total_encaisse: t.enc, total_benefice: t.ben,
+      });
+    },
     async updateSalary(pompisteId, salary) {
       const { error } = await sb.from('pompiste_profiles').update({ base_salary: salary.base_salary, base_salary_usd: salary.base_salary_usd }).eq('id', pompisteId);
       if (error) throw new Error(error.message);

@@ -7,6 +7,7 @@ interface DataCtx extends StationData {
   ready: boolean;
   refresh: () => Promise<void>;
   createReport: (draft: ReportDraft, author: AppUser) => Promise<void>;
+  closeDay: (reportIds: string[]) => Promise<void>;
   updateSalary: (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => Promise<void>;
   addExpenseCategory: (name: string, color: string) => Promise<void>;
   addExpense: (input: NewExpenseInput) => Promise<void>;
@@ -43,6 +44,7 @@ const EMPTY: StationData = {
   debtPayments: [],
   supplierOrders: [],
   cashEntries: [],
+  dailyClosings: [],
   capitalHistory: [],
   stockLogs: [],
   announcements: [],
@@ -86,6 +88,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [db, refresh],
   );
 
+  const closeDay = useCallback(async (reportIds: string[]) => { await db.closeDay(reportIds); await refresh(); }, [db, refresh]);
+
   const updateSalary = useCallback(
     async (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => {
       await db.updateSalary(pompisteId, salary, changedBy);
@@ -123,7 +127,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, updateSalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, updateSalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

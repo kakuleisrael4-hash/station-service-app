@@ -194,7 +194,8 @@ export function computeCaisse(
   taux: number,
   cashEntries: CashEntry[] = [],
 ): CaisseBalance {
-  const valides = reports.filter((r) => r.status === 'valide');
+  // Caisse = uniquement les rapports CLÔTURÉS (reconnaissance financière à la clôture).
+  const valides = reports.filter((r) => r.status === 'valide' && r.closed);
   const salesFC = valides.reduce((s, r) => s + r.total_billetage_fc, 0);
   const salesUSD = valides.reduce((s, r) => s + r.total_usd, 0);
   const payFC = debtPayments.filter((p) => p.currency === 'FC').reduce((s, p) => s + p.amount, 0);
@@ -284,7 +285,7 @@ export function profitVsExpenses(reports: Report[], expenses: Expense[], period 
     return e;
   };
   reports
-    .filter((r) => r.status === 'valide' && r.report_date.startsWith(period))
+    .filter((r) => r.status === 'valide' && r.closed && r.report_date.startsWith(period))
     .forEach((r) => { get(r.report_date).benefices += r.benefice || 0; });
   expenses
     .filter((e) => e.date.startsWith(period))
@@ -297,7 +298,7 @@ export function profitVsExpenses(reports: Report[], expenses: Expense[], period 
 
 /** Bénéfice cumulé total (tous rapports validés). */
 export function totalBenefice(reports: Report[]): number {
-  return reports.filter((r) => r.status === 'valide').reduce((s, r) => s + (r.benefice || 0), 0);
+  return reports.filter((r) => r.status === 'valide' && r.closed).reduce((s, r) => s + (r.benefice || 0), 0);
 }
 
 /** Dépenses agrégées par catégorie (pour le camembert analytique). */

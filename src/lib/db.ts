@@ -9,6 +9,7 @@ import type {
   CapitalPoint,
   CashEntry,
   Cistern,
+  DailyClosing,
   Currency,
   Debt,
   DebtPayment,
@@ -45,6 +46,7 @@ export interface StationData {
   debtPayments: DebtPayment[];
   supplierOrders: SupplierOrder[];
   cashEntries: CashEntry[];
+  dailyClosings: DailyClosing[];
   capitalHistory: CapitalPoint[];
   stockLogs: StockLog[];
   announcements: Announcement[];
@@ -110,6 +112,8 @@ export interface StationDB {
 
   // Mutations (admin)
   createReport(draft: ReportDraft, author: AppUser): Promise<Report>;
+  /** Clôture journalière : consolide les rapports sélectionnés, applique les impacts (stock, RH, caisse, capital). */
+  closeDay(reportIds: string[]): Promise<void>;
   updateSalary(pompisteId: string, salary: SalaryParts, changedBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;

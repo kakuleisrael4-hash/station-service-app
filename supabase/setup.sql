@@ -108,6 +108,8 @@ create table if not exists public.reports (
   ecart numeric(16,2) not null default 0,
   benefice numeric(16,2) not null default 0,   -- marge nette du rapport (FC)
   status report_status not null default 'brouillon',
+  closed boolean not null default false,        -- clôturé (reconnu financièrement à la clôture journalière)
+  closed_at timestamptz,
   validated_at timestamptz, created_at timestamptz not null default now(),
   constraint reports_balance_chk check (status <> 'valide' or ecart = 0),
   unique (pompiste_id, report_date)
@@ -165,6 +167,21 @@ create table if not exists public.supplier_orders (
   volume_l numeric(14,2) not null, purchase_price numeric(16,2) not null default 0,
   deposit numeric(16,2) not null default 0, status order_status not null default 'en_cours',
   order_date date not null default current_date, delivered_at timestamptz
+);
+
+-- -------------------- CLÔTURES JOURNALIÈRES --------------------------
+create table if not exists public.daily_closings (
+  id uuid primary key default gen_random_uuid(),
+  date date not null default current_date,
+  report_ids jsonb not null default '[]'::jsonb,
+  report_count int not null default 0,
+  total_super_l numeric(16,2) not null default 0,
+  total_gasoil_l numeric(16,2) not null default 0,
+  total_volume_l numeric(16,2) not null default 0,
+  total_encaisse numeric(18,2) not null default 0,
+  total_benefice numeric(18,2) not null default 0,
+  closed_by uuid references public.users (id),
+  closed_at timestamptz not null default now()
 );
 
 -- ----------------- APPORTS DE FONDS (entrées hors rapport) -----------
@@ -346,16 +363,26 @@ drop trigger if exists trg_reports_recompute on public.reports;
 create trigger trg_reports_recompute before insert or update on public.reports
   for each row execute function public.reports_recompute();
 
--- 5) Validation : décrément citernes (par pompe) + mouvements + RH (idempotent)
+-- 5) Enregistrement : la validation ne fait QUE dater (aucun impact stock/RH/caisse).
+--    Toute la consolidation a lieu à la CLÔTURE journalière (closed false -> true).
 create or replace function public.on_report_validated() returns trigger language plpgsql as $$
-declare rd record; puser uuid;
 begin
   if new.status='valide' and (old.status is distinct from 'valide') then
     new.validated_at := now();
+  end if;
+  return new;
+end $$;
+
+-- 5b) Clôture d'un rapport : décrément citernes (par pompe) + mouvements + RH.
+create or replace function public.on_report_closed() returns trigger language plpgsql as $$
+declare rd record; puser uuid;
+begin
+  if new.closed and (old.closed is distinct from true) then
+    new.closed_at := now();
     for rd in select * from public.report_pump_readings where report_id=new.id and litrage>0 loop
       update public.cisterns set current_l=greatest(current_l-rd.litrage,0), updated_at=now() where id=rd.cistern_id;
       insert into public.fuel_movements(cistern_id,kind,volume_l,source,ref_id,label)
-        values (rd.cistern_id,'sortie',rd.litrage,'rapport',new.id,'Ventes rapport '||new.report_date);
+        values (rd.cistern_id,'sortie',rd.litrage,'rapport',new.id,'Clôture rapport '||new.report_date);
     end loop;
     if new.manquant>0 then
       update public.pompiste_profiles set cumul_manquants_mois=cumul_manquants_mois+new.manquant
@@ -369,6 +396,9 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists trg_report_closed on public.reports;
+create trigger trg_report_closed before update on public.reports
+  for each row execute function public.on_report_closed();
 drop trigger if exists trg_report_validated on public.reports;
 create trigger trg_report_validated before update on public.reports
   for each row execute function public.on_report_validated();
@@ -437,12 +467,12 @@ begin
   select taux_journalier into v_taux from public.settings limit 1;
   v_taux := coalesce(v_taux, 0);
   -- Caisse à double compartiment (FC + USD physiques)
-  v_fc := coalesce((select sum(total_billetage_fc) from public.reports where status='valide'),0)
+  v_fc := coalesce((select sum(total_billetage_fc) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='FC'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
         - coalesce((select sum(case when status='livre' then purchase_price else deposit end) from public.supplier_orders),0);
-  v_usd := coalesce((select sum(total_usd) from public.reports where status='valide'),0)
+  v_usd := coalesce((select sum(total_usd) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0);
@@ -522,6 +552,7 @@ alter table public.debts               enable row level security;
 alter table public.debt_payments       enable row level security;
 alter table public.supplier_orders     enable row level security;
 alter table public.cash_entries        enable row level security;
+alter table public.daily_closings      enable row level security;
 alter table public.capital_history     enable row level security;
 alter table public.stock_logs          enable row level security;
 alter table public.announcements       enable row level security;
@@ -549,6 +580,9 @@ create policy mov_admin on public.fuel_movements for all using (public.is_admin(
 create policy cat_admin on public.expense_categories for all using (public.is_admin()) with check (public.is_admin());
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
 create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
+-- CLÔTURES : admin écrit, admin+viewer lisent
+create policy closing_read on public.daily_closings for select using (public.is_staff());
+create policy closing_admin on public.daily_closings for all using (public.is_admin()) with check (public.is_admin());
 
 -- RAPPORTS : admin (tout) · viewer (lecture) · pompiste (SES rapports validés)
 create policy reports_read on public.reports for select
@@ -605,7 +639,7 @@ do $$ begin
     public.pompiste_profiles, public.debts, public.supplier_orders,
     public.capital_history, public.fuel_movements, public.notifications,
     public.announcements, public.stock_logs, public.settings, public.landing_page_content,
-    public.cash_entries;
+    public.cash_entries, public.daily_closings;
 exception when others then null; end $$;
 
 -- ###### 3/3 DONNÉES DE RÉFÉRENCE ######

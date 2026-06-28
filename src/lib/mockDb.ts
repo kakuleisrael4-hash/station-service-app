@@ -16,9 +16,9 @@ import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v10';
-const SESSION_KEY = 'kkcoil.session.v10';
-const PW_KEY = 'kkcoil.pw.v10';
+const STORE_KEY = 'kkcoil.store.v11';
+const SESSION_KEY = 'kkcoil.session.v11';
+const PW_KEY = 'kkcoil.pw.v11';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
 const DEMO_PASSWORD = '1234';
 
@@ -58,7 +58,7 @@ function seed(): StationData {
   return {
     users, pompistes, reports: [], cisterns, pumps, fuelMovements: [],
     expenseCategories, expenses: [], debts: [], debtPayments: [], supplierOrders: [],
-    cashEntries: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
+    cashEntries: [], dailyClosings: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
     notifications, salaryHistory: [],
   };
 }
@@ -68,7 +68,7 @@ function seed(): StationData {
 const REQUIRED_KEYS: (keyof StationData)[] = [
   'users', 'pompistes', 'reports', 'cisterns', 'pumps', 'fuelMovements',
   'expenseCategories', 'expenses', 'debts', 'debtPayments', 'supplierOrders',
-  'cashEntries', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory',
+  'cashEntries', 'dailyClosings', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory',
 ];
 
 function load(): StationData {
@@ -143,7 +143,7 @@ export const mockDb: StationDB = {
       total_depenses: c.total_depenses, total_a_remettre: c.total_a_remettre,
       total_billetage_fc: c.total_billetage_fc, total_usd_fc: c.total_usd_fc,
       total_encaisse: c.total_encaisse, ecart: c.ecart, benefice: c.benefice,
-      status: 'valide', validated_at: new Date().toISOString(), created_at: new Date().toISOString(),
+      status: 'valide', closed: false, closed_at: null, validated_at: new Date().toISOString(), created_at: new Date().toISOString(),
     };
     store.reports = [report, ...store.reports];
 
@@ -154,33 +154,50 @@ export const mockDb: StationDB = {
         ...store.expenses,
       ];
     }
-
-    // Décrément des citernes par pompe + mouvements de sortie
-    const sortieByCistern = new Map<string, number>();
-    c.pumps.forEach((pr) => sortieByCistern.set(pr.cistern_id, (sortieByCistern.get(pr.cistern_id) ?? 0) + pr.litrage));
-    sortieByCistern.forEach((vol, cistern_id) => {
-      const cit = store.cisterns.find((x) => x.id === cistern_id);
-      if (cit && vol > 0) {
-        cit.current_l = Math.max(cit.current_l - vol, 0);
-        cit.updated_at = new Date().toISOString();
-        store.fuelMovements = [
-          { id: uid(), cistern_id, kind: 'sortie', volume_l: Math.round(vol), source: 'rapport', ref_id: report.id, label: `Ventes — rapport ${draft.report_date}`, created_at: new Date().toISOString() },
-          ...store.fuelMovements,
-        ];
-      }
-    });
-
-    // Impact RH
-    if (draft.manquant > 0) {
-      const pp = store.pompistes.find((p) => p.id === draft.pompiste_id);
-      if (pp) {
-        pp.cumul_manquants_mois += draft.manquant;
-        if (pp.user_id) store.notifications = [{ id: uid(), user_id: pp.user_id, type: 'manquant', title: 'Manquant imputé', body: `Un manquant de ${draft.manquant.toLocaleString('fr-FR')} FC a été enregistré sur votre rapport du ${draft.report_date}.`, meta: { amount: draft.manquant }, read: false, created_at: new Date().toISOString() }, ...store.notifications];
-      }
-    }
-    snapshotCapital();
+    // ENREGISTREMENT SEUL : aucun impact stock/RH/caisse/capital ici.
+    // Tout est consolidé à la CLÔTURE journalière (closeDay).
     emit();
     return clone(report);
+  },
+
+  async closeDay(reportIds) {
+    const ids = new Set(reportIds);
+    const targets = store.reports.filter((r) => ids.has(r.id) && r.status === 'valide' && !r.closed);
+    if (targets.length === 0) return;
+    const now = new Date().toISOString();
+    let superL = 0, gasL = 0, encaisse = 0, benef = 0;
+    for (const report of targets) {
+      // Décrément des citernes par pompe + mouvements de sortie
+      const sortieByCistern = new Map<string, number>();
+      report.pump_readings.forEach((pr) => sortieByCistern.set(pr.cistern_id, (sortieByCistern.get(pr.cistern_id) ?? 0) + pr.litrage));
+      sortieByCistern.forEach((vol, cistern_id) => {
+        const cit = store.cisterns.find((x) => x.id === cistern_id);
+        if (cit && vol > 0) {
+          cit.current_l = Math.max(cit.current_l - vol, 0);
+          cit.updated_at = now;
+          store.fuelMovements = [{ id: uid(), cistern_id, kind: 'sortie', volume_l: Math.round(vol), source: 'rapport', ref_id: report.id, label: `Clôture — rapport ${report.report_date}`, created_at: now }, ...store.fuelMovements];
+        }
+      });
+      // Impact RH (manquant)
+      if (report.manquant > 0) {
+        const pp = store.pompistes.find((p) => p.id === report.pompiste_id);
+        if (pp) {
+          pp.cumul_manquants_mois += report.manquant;
+          if (pp.user_id) store.notifications = [{ id: uid(), user_id: pp.user_id, type: 'manquant', title: 'Manquant imputé', body: `Un manquant de ${report.manquant.toLocaleString('fr-FR')} FC a été enregistré sur votre rapport du ${report.report_date}.`, meta: { amount: report.manquant }, read: false, created_at: now }, ...store.notifications];
+        }
+      }
+      report.closed = true;
+      report.closed_at = now;
+      superL += report.essence_litrage; gasL += report.gasoil_litrage;
+      encaisse += report.total_encaisse; benef += report.benefice;
+    }
+    store.dailyClosings = [{
+      id: uid(), date: todayISO(), report_ids: targets.map((r) => r.id), report_count: targets.length,
+      total_super_l: superL, total_gasoil_l: gasL, total_volume_l: superL + gasL,
+      total_encaisse: encaisse, total_benefice: benef, closed_by: 'u-admin', closed_at: now,
+    }, ...store.dailyClosings];
+    snapshotCapital();
+    emit();
   },
 
   async updateSalary(pompisteId, salary, changedBy) {

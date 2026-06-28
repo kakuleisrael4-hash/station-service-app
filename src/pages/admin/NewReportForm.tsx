@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Fuel, Droplets, Plus, Trash2, Banknote, DollarSign, AlertTriangle, CheckCircle2,
@@ -21,7 +21,7 @@ const toNum = (v: string) => {
 interface FormState {
   pompiste_id: string;
   report_date: string;
-  pumps: Record<string, { close: string }>;
+  pumps: Record<string, { open: string; close: string }>;
   manquant: string;
   taux_journalier: string;
   total_usd: string;
@@ -30,7 +30,7 @@ interface FormState {
   admin_comment: string;
 }
 
-const blankPumps = () => Object.fromEntries(PUMPS.map((p) => [p.id, { close: '' }]));
+const blankPumps = () => Object.fromEntries(PUMPS.map((p) => [p.id, { open: '', close: '' }]));
 const blank: FormState = {
   pompiste_id: '', report_date: todayISO(), pumps: blankPumps(),
   manquant: '', taux_journalier: '2850', total_usd: '', billetage: {}, expenses: [], admin_comment: '',
@@ -41,20 +41,34 @@ export default function NewReportForm() {
   const { pompistes, expenseCategories, pumps, cisterns, settings, reports, createReport } = useData();
   const [f, setF] = useState<FormState>(() => ({ ...blank, taux_journalier: String(settings.taux_journalier) }));
 
-  // Règle d'or : index d'ouverture = dernière fermeture validée de chaque pompe.
+  // Suggestion : index d'ouverture = dernière fermeture de chaque pompe (modifiable).
   const openings = useMemo(() => lastClosingIndexByPump(reports), [reports]);
   const [stars, setStars] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }));
-  const setClose = (id: string, v: string) =>
-    setF((p) => ({ ...p, pumps: { ...p.pumps, [id]: { close: v } } }));
+  const setPump = (id: string, side: 'open' | 'close', v: string) =>
+    setF((p) => ({ ...p, pumps: { ...p.pumps, [id]: { ...(p.pumps[id] ?? { open: '', close: '' }), [side]: v } } }));
+
+  // Pré-remplit l'ouverture avec la dernière fermeture (suggestion) tant que le
+  // champ est vide — mais il reste entièrement modifiable par l'Admin.
+  useEffect(() => {
+    setF((p) => {
+      let changed = false;
+      const np = { ...p.pumps };
+      pumps.forEach((pm) => {
+        const cur = np[pm.id] ?? { open: '', close: '' };
+        if (!cur.open && openings[pm.id] != null) { np[pm.id] = { ...cur, open: String(openings[pm.id]) }; changed = true; }
+      });
+      return changed ? { ...p, pumps: np } : p;
+    });
+  }, [openings, pumps]);
 
   const draft: ReportDraft = useMemo(() => ({
     pompiste_id: f.pompiste_id,
     report_date: f.report_date,
-    pumps: pumps.map((p) => ({ pump_id: p.id, index_open: openings[p.id] ?? 0, index_close: toNum(f.pumps[p.id]?.close ?? '') })),
+    pumps: pumps.map((p) => ({ pump_id: p.id, index_open: toNum(f.pumps[p.id]?.open ?? ''), index_close: toNum(f.pumps[p.id]?.close ?? '') })),
     manquant: toNum(f.manquant),
     taux_journalier: toNum(f.taux_journalier),
     total_usd: toNum(f.total_usd),
@@ -62,7 +76,7 @@ export default function NewReportForm() {
     expenses: f.expenses,
     final_stars: stars,
     admin_comment: f.admin_comment,
-  }), [f, stars, pumps, openings]);
+  }), [f, stars, pumps]);
 
   const calcCtx = useMemo(() => ({
     pumps,
@@ -119,9 +133,9 @@ export default function NewReportForm() {
           {pumps.map((pump) => {
             const reading = c.pumps.find((x) => x.pump_id === pump.id)!;
             const isGas = pump.fuel === 'gasoil';
-            const open = openings[pump.id] ?? 0;
+            const open = f.pumps[pump.id]?.open ?? '';
             const close = f.pumps[pump.id]?.close ?? '';
-            const invalid = close !== '' && toNum(close) <= open;
+            const invalid = close !== '' && toNum(close) < toNum(open);
             const cisternName = cisterns.find((cc) => cc.id === pump.cistern_id)?.name ?? pump.cistern_id;
             return (
               <Card key={pump.id}>
@@ -140,13 +154,13 @@ export default function NewReportForm() {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div>
-                    <label className="label">Index ouv. (auto)</label>
-                    <input type="number" className="field !py-2 cursor-not-allowed bg-night-950/60 text-slate-400" value={open} disabled readOnly title="Repris automatiquement du dernier rapport validé de cette pompe" />
+                    <label className="label">Index ouv. <span className="text-slate-500">(modifiable)</span></label>
+                    <input type="number" className="field !py-2" placeholder="0" value={open} onChange={(e) => setPump(pump.id, 'open', e.target.value)} title="Suggéré depuis la dernière fermeture — librement modifiable" />
                   </div>
                   <div>
                     <label className="label">Index ferm.</label>
-                    <input type="number" className={`field !py-2 ${invalid ? 'border-rose-500/60 ring-1 ring-rose-500/30' : ''}`} placeholder="0" value={close} onChange={(e) => setClose(pump.id, e.target.value)} />
-                    {invalid && <p className="mt-1 text-xs text-rose-400">Doit être &gt; {open.toLocaleString('fr-FR')}.</p>}
+                    <input type="number" className={`field !py-2 ${invalid ? 'border-rose-500/60 ring-1 ring-rose-500/30' : ''}`} placeholder="0" value={close} onChange={(e) => setPump(pump.id, 'close', e.target.value)} />
+                    {invalid && <p className="mt-1 text-xs text-rose-400">Ne peut pas être &lt; {toNum(open).toLocaleString('fr-FR')}.</p>}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-sm ring-1 ring-white/10">
@@ -275,7 +289,7 @@ export default function NewReportForm() {
       </div>
 
       <FloatingAlert show={touched && !c.is_balanced} kind="error">⚠ Billetage ≠ total à remettre — écart de {fc(Math.abs(c.ecart))}</FloatingAlert>
-      <FloatingAlert show={done} kind="success">✓ Rapport validé — citernes, RH, caisse & capital mis à jour</FloatingAlert>
+      <FloatingAlert show={done} kind="success">✓ Rapport enregistré — à clôturer dans « Clôture journalière » pour l'intégrer au capital</FloatingAlert>
     </div>
   );
 }

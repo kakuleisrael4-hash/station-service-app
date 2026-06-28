@@ -265,8 +265,25 @@ export interface Report {
   benefice: number; // marge nette générée par le rapport (FC)
 
   status: ReportStatus;
+  closed: boolean; // clôturé (reconnu financièrement à la clôture journalière)
+  closed_at?: string | null;
   validated_at?: string | null;
   created_at: string;
+}
+
+/** Clôture journalière : consolidation d'un ensemble de rapports choisis par l'Admin. */
+export interface DailyClosing {
+  id: string;
+  date: string;
+  report_ids: string[];
+  report_count: number;
+  total_super_l: number;
+  total_gasoil_l: number;
+  total_volume_l: number;
+  total_encaisse: number;
+  total_benefice: number;
+  closed_by?: string | null;
+  closed_at: string;
 }
 
 export interface Notification {

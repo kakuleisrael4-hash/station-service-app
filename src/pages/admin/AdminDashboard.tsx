@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, FilePlus2, Wallet, Gauge as GaugeIcon, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown } from 'lucide-react';
+import { Megaphone, FilePlus2, Wallet, Gauge as GaugeIcon, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck } from 'lucide-react';
 import { exportReportPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
@@ -13,16 +13,18 @@ import DebtsOrders from './DebtsOrders';
 import Communiques from './Communiques';
 import SettingsPanel from './SettingsPanel';
 import SiteEditor from './SiteEditor';
+import DailyClosing from './DailyClosing';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
 import { useData } from '@/context/DataContext';
 import { stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, currentPeriod } from '@/lib/format';
 
-type Tab = 'communique' | 'rapport' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
+type Tab = 'communique' | 'rapport' | 'cloture' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'communique', label: 'Communiqué', icon: <Megaphone className="h-4 w-4" /> },
   { id: 'rapport', label: 'Nouveau Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
+  { id: 'cloture', label: 'Clôture journalière', icon: <CalendarCheck className="h-4 w-4" /> },
   { id: 'carburant', label: 'Carburant & Stocks', icon: <Droplets className="h-4 w-4" /> },
   { id: 'caisse', label: 'Caisse & Dépenses', icon: <Receipt className="h-4 w-4" /> },
   { id: 'dettes', label: 'Dettes & Commandes', icon: <HandCoins className="h-4 w-4" /> },
@@ -70,12 +72,12 @@ export default function AdminDashboard() {
           </div>
           <ProfitExpensesChart />
           <Card>
-            <SectionTitle title="Rapports récents" subtitle="Derniers rapports validés" />
+            <SectionTitle title="Rapports récents" subtitle="Enregistrés (à clôturer) & clôturés" />
             {recent.length === 0 ? <EmptyState>Aucun rapport.</EmptyState> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">Note</th><th className="pb-2 text-right">PDF</th>
+                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2">Statut</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">PDF</th>
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
                     {recent.map((r) => {
@@ -84,10 +86,10 @@ export default function AdminDashboard() {
                         <tr key={r.id}>
                           <td className="py-2">{shortDate(r.report_date)}</td>
                           <td className="py-2 font-medium">{p?.display_name ?? '—'}</td>
+                          <td className="py-2"><span className={`chip ${r.closed ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{r.closed ? 'Clôturé' : 'Enregistré'}</span></td>
                           <td className="py-2 text-right tabular-nums">{liters(r.essence_litrage + r.gasoil_litrage)}</td>
                           <td className="py-2 text-right tabular-nums">{fc(r.total_a_remettre)}</td>
                           <td className={`py-2 text-right tabular-nums ${r.manquant > 0 ? 'text-rose-400' : 'text-slate-500'}`}>{r.manquant > 0 ? fc(r.manquant) : '—'}</td>
-                          <td className="py-2 text-right tabular-nums">{r.final_stars ?? Math.round((r.auto_score ?? 0) / 2)}★</td>
                           <td className="py-2 text-right"><button onClick={() => exportReportPDF(r, p?.display_name ?? 'Pompiste')} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF"><FileDown className="ml-auto h-4 w-4" /></button></td>
                         </tr>
                       );
@@ -101,6 +103,7 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'rapport' && <NewReportForm />}
+      {tab === 'cloture' && <DailyClosing />}
       {tab === 'carburant' && <FuelStockManagement canEdit />}
       {tab === 'caisse' && <CaisseExpenses />}
       {tab === 'dettes' && <DebtsOrders />}
