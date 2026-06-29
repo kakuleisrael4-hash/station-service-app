@@ -3,11 +3,12 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { TrendingUp, PieChart as PieIcon, Wallet, Droplets, Users, Megaphone, Landmark } from 'lucide-react';
+import { TrendingUp, PieChart as PieIcon, Wallet, Droplets, Users, Megaphone, Landmark, Receipt } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
+import ExpensesTable from '@/components/ExpensesTable';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
@@ -16,16 +17,17 @@ import { globalDaily, volumeShare, stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
 
 const PIE_COLORS = ['#10b981', '#f59e0b', '#38bdf8', '#a78bfa', '#fb7185', '#34d399'];
-type Tab = 'global' | 'carburant' | 'capital';
+type Tab = 'global' | 'carburant' | 'capital' | 'depenses';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'global', label: 'Vue globale', icon: <Megaphone className="h-4 w-4" /> },
   { id: 'carburant', label: 'Carburant & Stocks', icon: <Droplets className="h-4 w-4" /> },
   { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
+  { id: 'depenses', label: 'Audit dépenses', icon: <Receipt className="h-4 w-4" /> },
 ];
 
 export default function ViewerDashboard() {
   const [tab, setTab] = useState<Tab>('global');
-  const { reports, pompistes, cisterns, settings } = useData();
+  const { reports, pompistes, cisterns, settings, expenses, expenseCategories } = useData();
   const period = currentPeriod();
 
   const daily = globalDaily(reports);
@@ -49,6 +51,14 @@ export default function ViewerDashboard() {
 
       {tab === 'carburant' && <FuelStockManagement />}
       {tab === 'capital' && <CapitalEvolution />}
+      {tab === 'depenses' && (
+        <ExpensesTable
+          expenses={expenses}
+          categories={expenseCategories}
+          title="Audit des dépenses"
+          subtitle="Historique complet et chronologique — contrôle des sorties d'argent"
+        />
+      )}
 
       {tab === 'global' && (
         <div className="space-y-5">

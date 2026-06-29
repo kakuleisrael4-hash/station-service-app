@@ -46,6 +46,7 @@ export default function NewReportForm() {
   const [stars, setStars] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }));
   const setPump = (id: string, side: 'open' | 'close', v: string) =>
@@ -68,7 +69,13 @@ export default function NewReportForm() {
   const draft: ReportDraft = useMemo(() => ({
     pompiste_id: f.pompiste_id,
     report_date: f.report_date,
-    pumps: pumps.map((p) => ({ pump_id: p.id, index_open: toNum(f.pumps[p.id]?.open ?? ''), index_close: toNum(f.pumps[p.id]?.close ?? '') })),
+    // Fermeture vide = pompe non utilisée ce shift : on aligne fermeture sur
+    // ouverture (litrage 0) pour ne pas déclencher de fausse erreur de saisie.
+    pumps: pumps.map((p) => {
+      const openS = f.pumps[p.id]?.open ?? '';
+      const closeS = f.pumps[p.id]?.close ?? '';
+      return { pump_id: p.id, index_open: toNum(openS), index_close: closeS === '' ? toNum(openS) : toNum(closeS) };
+    }),
     manquant: toNum(f.manquant),
     taux_journalier: toNum(f.taux_journalier),
     total_usd: toNum(f.total_usd),
@@ -86,8 +93,11 @@ export default function NewReportForm() {
   const c = useMemo(() => computeReport(draft, calcCtx), [draft, calcCtx]);
   const errors = useMemo(() => validateDraft(draft, c), [draft, c]);
   const touched = c.total_encaisse > 0 || draft.manquant > 0 || c.total_a_remettre > 0;
-  const canSave = errors.length === 0 && c.is_balanced && !!f.pompiste_id;
+  // L'écart ne bloque plus : seuls les autres contrôles (pompiste, catégories, taux…) bloquent.
+  const canSave = errors.length === 0 && !!f.pompiste_id;
   const suggestedStars = starsFromScore(c.auto_score);
+  // Écart de caisse = Y − X. Positif = manque (imputé au pompiste) ; négatif = surplus.
+  const shortfall = c.total_a_remettre - c.total_encaisse;
 
   function addExpense() {
     set('expenses', [...f.expenses, { id: crypto.randomUUID?.() ?? String(Math.random()), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
@@ -95,16 +105,31 @@ export default function NewReportForm() {
   const updateExpense = (id: string, patch: Partial<Expense>) => set('expenses', f.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const removeExpense = (id: string) => set('expenses', f.expenses.filter((e) => e.id !== id));
 
-  async function submit() {
-    if (!canSave || !user) return;
+  async function doSave(d: ReportDraft) {
+    if (!user) return;
     setBusy(true);
     try {
-      await createReport({ ...draft, final_stars: stars ?? suggestedStars }, user);
+      await createReport({ ...d, final_stars: stars ?? suggestedStars }, user);
       setDone(true);
       setTimeout(() => { setF(blank); setStars(null); setDone(false); }, 1800);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Enregistrement impossible.');
     } finally { setBusy(false); }
+  }
+
+  function submit() {
+    if (!canSave || !user) return;
+    // Caisse équilibrée → enregistrement direct. Sinon → pop-up de confirmation.
+    if (!c.is_balanced) { setConfirmOpen(true); return; }
+    void doSave(draft);
+  }
+
+  // Force la validation : l'écart manquant (Y − X, si positif) devient un manquant
+  // officiel ajouté au manquant saisi, ce qui rééquilibre le rapport (Y' = X).
+  function confirmForce() {
+    const extra = Math.max(shortfall, 0);
+    setConfirmOpen(false);
+    void doSave({ ...draft, manquant: draft.manquant + extra });
   }
 
   return (
@@ -290,6 +315,40 @@ export default function NewReportForm() {
 
       <FloatingAlert show={touched && !c.is_balanced} kind="error">⚠ Billetage ≠ total à remettre — écart de {fc(Math.abs(c.ecart))}</FloatingAlert>
       <FloatingAlert show={done} kind="success">✓ Rapport enregistré — à clôturer dans « Clôture journalière » pour l'intégrer au capital</FloatingAlert>
+
+      {/* POP-UP : confirmation de validation forcée avec écart de caisse */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm" onClick={() => setConfirmOpen(false)}>
+          <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-night-900 p-6 shadow-2xl ring-1 ring-rose-500/20">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-6 w-6" /></div>
+              <h3 className="text-lg font-black text-rose-200">Écart de caisse détecté</h3>
+            </div>
+            <p className="text-sm leading-relaxed text-slate-300">
+              Un écart de caisse de <span className="font-bold tabular-nums text-rose-300">{fc(Math.abs(shortfall))}</span>{' '}
+              ({shortfall > 0 ? 'manque dans la caisse' : 'surplus dans la caisse'}) est détecté entre le billetage physique (X) et le total à remettre (Y).
+            </p>
+            {shortfall > 0 ? (
+              <div className="mt-3 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200 ring-1 ring-rose-500/20">
+                En forçant, cet écart sera imputé comme <span className="font-bold">manquant officiel</span> sur le compte du pompiste
+                (déduit de son salaire net). Manquant total : <span className="font-bold tabular-nums">{fc(draft.manquant + shortfall)}</span>.
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl bg-fuel-500/10 px-4 py-3 text-sm text-fuel-200 ring-1 ring-fuel-500/20">
+                Surplus de caisse : le rapport sera enregistré tel quel (aucun manquant imputé).
+              </div>
+            )}
+            <p className="mt-3 text-sm font-semibold text-slate-200">Souhaitez-vous forcer la validation ?</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setConfirmOpen(false)} className="btn flex-1 bg-white/5 text-slate-200 hover:bg-white/10">Annuler</button>
+              <button onClick={confirmForce} disabled={busy} className="btn flex-1 bg-rose-500 font-bold text-night-950 hover:bg-rose-400">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />} Forcer la validation
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp } from 'lucide-react';
+import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp, Fuel } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import { useData } from '@/context/DataContext';
 import { fc, liters, shortDate, fullDate } from '@/lib/format';
@@ -14,8 +14,12 @@ export default function DailyClosing() {
 
   const selected = open.filter((r) => sel.has(r.id));
   const t = selected.reduce(
-    (a, r) => ({ sup: a.sup + r.essence_litrage, gas: a.gas + r.gasoil_litrage, enc: a.enc + r.total_encaisse, ben: a.ben + r.benefice }),
-    { sup: 0, gas: 0, enc: 0, ben: 0 },
+    (a, r) => ({
+      sup: a.sup + r.essence_litrage, supM: a.supM + r.essence_montant,
+      gas: a.gas + r.gasoil_litrage, gasM: a.gasM + r.gasoil_montant,
+      enc: a.enc + r.total_encaisse, ben: a.ben + r.benefice,
+    }),
+    { sup: 0, supM: 0, gas: 0, gasM: 0, enc: 0, ben: 0 },
   );
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allSelected = open.length > 0 && selected.length === open.length;
@@ -68,6 +72,24 @@ export default function DailyClosing() {
               <StatCard label="Volume total" value={liters(t.sup + t.gas)} icon={<Droplets className="h-4 w-4" />} hint={`Super ${liters(t.sup)} · Gasoil ${liters(t.gas)}`} />
               <StatCard label="Total encaissé" value={fc(t.enc)} icon={<Wallet className="h-4 w-4" />} accent="text-energy-400" />
               <StatCard label="Bénéfice du jour" value={fc(t.ben)} icon={<TrendingUp className="h-4 w-4" />} accent="text-fuel-400" />
+            </div>
+
+            {/* Détail explicite par produit (Super / Gasoil) */}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-energy-500/[0.06] p-4 ring-1 ring-energy-500/20">
+                <div className="mb-1 flex items-center gap-2 text-energy-300"><Droplets className="h-4 w-4" /><span className="text-sm font-bold uppercase tracking-wide">Ventes Super</span></div>
+                <div className="flex items-end justify-between">
+                  <div><p className="text-xs text-slate-400">Volume</p><p className="text-xl font-black tabular-nums">{liters(t.sup)}</p></div>
+                  <div className="text-right"><p className="text-xs text-slate-400">Montant généré</p><p className="text-xl font-black tabular-nums text-energy-300">{fc(t.supM)}</p></div>
+                </div>
+              </div>
+              <div className="rounded-xl bg-fuel-500/[0.06] p-4 ring-1 ring-fuel-500/20">
+                <div className="mb-1 flex items-center gap-2 text-fuel-300"><Fuel className="h-4 w-4" /><span className="text-sm font-bold uppercase tracking-wide">Ventes Gasoil</span></div>
+                <div className="flex items-end justify-between">
+                  <div><p className="text-xs text-slate-400">Volume</p><p className="text-xl font-black tabular-nums">{liters(t.gas)}</p></div>
+                  <div className="text-right"><p className="text-xs text-slate-400">Montant généré</p><p className="text-xl font-black tabular-nums text-fuel-300">{fc(t.gasM)}</p></div>
+                </div>
+              </div>
             </div>
 
             <button onClick={close} disabled={!selected.length || busy} className="btn-primary mt-4 !py-3 text-base font-bold">

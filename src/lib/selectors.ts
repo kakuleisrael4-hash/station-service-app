@@ -257,6 +257,69 @@ export function computeCapital(
   return { caisse, stock_value: sv, debts: dr, orders_value: ov, capital: caisse + sv + dr + ov };
 }
 
+// =================== VENTES PAR CARBURANT (clôturées) ===============
+export interface FuelSales {
+  superVol: number;
+  superMontant: number;
+  gasoilVol: number;
+  gasoilMontant: number;
+}
+
+/** Détail des ventes Super vs Gasoil (volume + montant) sur les rapports clôturés. */
+export function salesByFuel(reports: Report[]): FuelSales {
+  const closed = reports.filter((r) => r.status === 'valide' && r.closed);
+  return {
+    superVol: closed.reduce((s, r) => s + r.essence_litrage, 0),
+    superMontant: closed.reduce((s, r) => s + r.essence_montant, 0),
+    gasoilVol: closed.reduce((s, r) => s + r.gasoil_litrage, 0),
+    gasoilMontant: closed.reduce((s, r) => s + r.gasoil_montant, 0),
+  };
+}
+
+// =================== CAPITAL VENTILÉ PAR DEVISE =====================
+export interface CapitalByCurrency {
+  usd: { caisse: number; debts: number; total: number }; // natif USD
+  fc: { caisse: number; debts: number; stock: number; orders: number; total: number }; // natif FC
+  taux: number;
+  usdInFc: number; // total USD converti au taux
+  grandTotalFc: number; // FC + USD*taux (== computeCapital.capital)
+}
+
+/**
+ * Ventile le capital par devise d'origine :
+ *   • Bloc USD (natif) : caisse USD + dettes clients en USD.
+ *   • Bloc FC (natif)  : caisse FC + dettes clients en FC + valeur stock + commandes en cours.
+ *   • Grand Total FC   : Bloc FC + Bloc USD × taux.
+ * (Stock & commandes fournisseurs sont libellés en FC dans le modèle de données.)
+ */
+export function capitalByCurrency(
+  reports: Report[],
+  cisterns: Cistern[],
+  expenses: Expense[],
+  debts: Debt[],
+  debtPayments: DebtPayment[],
+  orders: SupplierOrder[],
+  taux: number,
+  cashEntries: CashEntry[] = [],
+): CapitalByCurrency {
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries);
+  const enAttente = debts.filter((d) => d.status === 'en_attente');
+  const debtsUSD = enAttente.filter((d) => d.currency === 'USD').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);
+  const debtsFC = enAttente.filter((d) => d.currency === 'FC').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);
+  const stock = stockValue(cisterns);
+  const orders_ = pendingOrdersValue(orders);
+  const usdTotal = caisse.usd + debtsUSD;
+  const fcTotal = caisse.fc + debtsFC + stock + orders_;
+  const usdInFc = usdTotal * taux;
+  return {
+    usd: { caisse: caisse.usd, debts: debtsUSD, total: usdTotal },
+    fc: { caisse: caisse.fc, debts: debtsFC, stock, orders: orders_, total: fcTotal },
+    taux,
+    usdInFc,
+    grandTotalFc: fcTotal + usdInFc,
+  };
+}
+
 export interface CategorySpend {
   category: ExpenseCategory;
   total: number;

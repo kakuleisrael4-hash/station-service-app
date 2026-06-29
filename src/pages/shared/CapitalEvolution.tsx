@@ -1,14 +1,17 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { TrendingUp, Wallet, Droplets, HandCoins, Landmark, Truck } from 'lucide-react';
+import { TrendingUp, Wallet, Droplets, HandCoins, Landmark, Truck, DollarSign, Banknote, Fuel, Coins } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { useData } from '@/context/DataContext';
-import { computeCapital } from '@/lib/selectors';
-import { fc, shortDate, fullDate } from '@/lib/format';
+import { computeCapital, capitalByCurrency, salesByFuel } from '@/lib/selectors';
+import { fc, usd, liters, shortDate, fullDate } from '@/lib/format';
 
 export default function CapitalEvolution() {
   const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, cashEntries, capitalHistory, settings } = useData();
-  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, settings.taux_journalier, cashEntries);
+  const taux = settings.taux_journalier;
+  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries);
+  const cc = capitalByCurrency(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries);
+  const sales = salesByFuel(reports);
 
   // On s'assure que le dernier point reflète le capital courant calculé.
   const history = [...capitalHistory].sort((a, b2) => a.date.localeCompare(b2.date));
@@ -29,6 +32,65 @@ export default function CapitalEvolution() {
         <StatCard label="Commandes en cours" value={fc(b.orders_value)} icon={<Truck className="h-4 w-4" />} accent="text-sky-400" />
         <StatCard label="CAPITAL TOTAL" value={fc(b.capital)} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
       </div>
+
+      {/* ===== TRANSPARENCE DEVISES : 3 blocs distincts ===== */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Bloc USD natif */}
+        <Card className="ring-1 ring-fuel-400/20">
+          <div className="mb-3 flex items-center gap-2 text-fuel-300"><DollarSign className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Total Global en Dollars</h3></div>
+          <p className="text-3xl font-black tabular-nums text-fuel-300">{usd(cc.usd.total)}</p>
+          <p className="mb-3 text-xs text-slate-500">≈ {fc(cc.usdInFc)} au taux {taux} FC/$</p>
+          <dl className="space-y-1.5 text-sm">
+            <Row label="Caisse USD" value={usd(cc.usd.caisse)} />
+            <Row label="Dettes clients (USD)" value={usd(cc.usd.debts)} />
+          </dl>
+        </Card>
+
+        {/* Bloc FC natif */}
+        <Card className="ring-1 ring-sky-400/20">
+          <div className="mb-3 flex items-center gap-2 text-sky-300"><Banknote className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Total Global en Francs</h3></div>
+          <p className="mb-3 text-3xl font-black tabular-nums text-sky-300">{fc(cc.fc.total)}</p>
+          <dl className="space-y-1.5 text-sm">
+            <Row label="Caisse FC" value={fc(cc.fc.caisse)} />
+            <Row label="Dettes clients (FC)" value={fc(cc.fc.debts)} />
+            <Row label="Valeur stock carburant" value={fc(cc.fc.stock)} />
+            <Row label="Commandes en cours" value={fc(cc.fc.orders)} />
+          </dl>
+        </Card>
+
+        {/* Grand total consolidé */}
+        <Card className="bg-energy-500/[0.06] ring-1 ring-energy-400/40">
+          <div className="mb-3 flex items-center gap-2 text-energy-300"><Coins className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Grand Total Consolidé</h3></div>
+          <p className="text-3xl font-black tabular-nums text-energy-300">{fc(cc.grandTotalFc)}</p>
+          <p className="mb-3 text-xs text-slate-500">Total FC + (Total USD × {taux})</p>
+          <dl className="space-y-1.5 text-sm">
+            <Row label="Bloc FC" value={fc(cc.fc.total)} />
+            <Row label="Bloc USD converti" value={fc(cc.usdInFc)} />
+          </dl>
+          <p className="mt-3 border-t border-white/10 pt-2 text-xs text-slate-500">Égal au CAPITAL TOTAL (toutes devises confondues).</p>
+        </Card>
+      </div>
+
+      {/* ===== VENTES PAR CARBURANT (rapports clôturés) ===== */}
+      <Card>
+        <SectionTitle icon={<Fuel className="h-5 w-5" />} title="Total des ventes par produit" subtitle="Volume écoulé & montant généré (cumul clôturé)" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-energy-500/[0.06] p-4 ring-1 ring-energy-500/20">
+            <div className="mb-1 flex items-center gap-2 text-energy-300"><Droplets className="h-4 w-4" /><span className="text-sm font-bold uppercase tracking-wide">Ventes Super</span></div>
+            <div className="flex items-end justify-between">
+              <div><p className="text-xs text-slate-400">Volume total</p><p className="text-2xl font-black tabular-nums">{liters(sales.superVol)}</p></div>
+              <div className="text-right"><p className="text-xs text-slate-400">Montant total</p><p className="text-2xl font-black tabular-nums text-energy-300">{fc(sales.superMontant)}</p></div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-fuel-500/[0.06] p-4 ring-1 ring-fuel-500/20">
+            <div className="mb-1 flex items-center gap-2 text-fuel-300"><Fuel className="h-4 w-4" /><span className="text-sm font-bold uppercase tracking-wide">Ventes Gasoil</span></div>
+            <div className="flex items-end justify-between">
+              <div><p className="text-xs text-slate-400">Volume total</p><p className="text-2xl font-black tabular-nums">{liters(sales.gasoilVol)}</p></div>
+              <div className="text-right"><p className="text-xs text-slate-400">Montant total</p><p className="text-2xl font-black tabular-nums text-fuel-300">{fc(sales.gasoilMontant)}</p></div>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <SectionTitle icon={<TrendingUp className="h-5 w-5" />} title="Courbe du capital" subtitle="Évolution jour après jour" />
@@ -63,6 +125,15 @@ export default function CapitalEvolution() {
       </Card>
 
       <ProfitExpensesChart />
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt className="text-slate-400">{label}</dt>
+      <dd className="font-semibold tabular-nums text-slate-200">{value}</dd>
     </div>
   );
 }

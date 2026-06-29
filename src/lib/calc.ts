@@ -120,8 +120,8 @@ export function validateDraft(d: ReportDraft, c: ComputedReport): string[] {
   const hasUsdExpense = d.expenses.some((e) => e.currency === 'USD' && num(e.amount) > 0);
   if ((num(d.total_usd) > 0 || hasUsdExpense) && num(d.taux_journalier) <= 0)
     errors.push('Renseignez le taux journalier pour convertir les USD.');
-  if (!c.is_balanced)
-    errors.push(`Billetage (X) ≠ TOTAL À REMETTRE (Y). Écart : ${c.ecart.toLocaleString('fr-FR')} FC.`);
+  // NB : un écart X ≠ Y ne bloque PLUS la validation. Il est confirmé par
+  // l'admin (pop-up) puis imputé comme manquant officiel (voir NewReportForm).
   return errors;
 }
 

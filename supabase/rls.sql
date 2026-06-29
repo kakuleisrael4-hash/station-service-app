@@ -51,9 +51,11 @@ create policy pump_admin on public.pumps for all using (public.is_admin()) with 
 create policy mov_read on public.fuel_movements for select using (public.is_staff());
 create policy mov_admin on public.fuel_movements for all using (public.is_admin()) with check (public.is_admin());
 
--- CAISSE & DÉPENSES : admin uniquement
+-- CAISSE & DÉPENSES : admin écrit · viewer (auditeur) lit dépenses+catégories · pompiste aucun accès
 create policy cat_admin on public.expense_categories for all using (public.is_admin()) with check (public.is_admin());
+create policy cat_read on public.expense_categories for select using (public.is_staff());
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
+create policy exp_read on public.expenses for select using (public.is_staff());
 create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
 -- CLÔTURES : admin écrit, admin+viewer lisent
 create policy closing_read on public.daily_closings for select using (public.is_staff());

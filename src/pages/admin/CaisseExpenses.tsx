@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
+import ExpensesTable from '@/components/ExpensesTable';
 import { useData } from '@/context/DataContext';
 import { computeCaisse, expensesByCategory } from '@/lib/selectors';
 import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
@@ -141,50 +142,26 @@ export default function CaisseExpenses() {
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* Analytique par catégorie */}
-        <Card>
-          <SectionTitle icon={<PieIcon className="h-5 w-5" />} title="Dépenses par catégorie" subtitle="Où part l'argent" />
-          {byCat.length === 0 ? <EmptyState>Aucune dépense.</EmptyState> : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={byCat} dataKey="total" nameKey="category.name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}>
-                    {byCat.map((r) => <Cell key={r.category.id} fill={r.category.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: '#0b101e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#fff' }} formatter={(v: number, _n, p: any) => [fc(v), p?.payload?.category?.name]} />
-                  <Legend formatter={(_v, _e, i) => byCat[i as number]?.category.name} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-
-        {/* Journal des transactions */}
-        <Card>
-          <SectionTitle title="Journal des dépenses" subtitle="Rapport & hors-rapport" />
-          <div className="max-h-72 overflow-y-auto">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-white/5">
-                {expenses.slice(0, 40).map((e) => {
-                  const c = expenseCategories.find((x) => x.id === e.category_id);
-                  return (
-                    <tr key={e.id}>
-                      <td className="py-2"><span className="chip" style={{ background: `${c?.color ?? '#64748b'}22`, color: c?.color ?? '#94a3b8' }}>{c?.name ?? 'Sans catégorie'}</span></td>
-                      <td className="py-2 text-slate-300">{e.description}</td>
-                      <td className="py-2 text-xs text-slate-500">{e.report_id ? 'Rapport' : 'Hors-rapport'}</td>
-                      <td className="py-2 text-right font-semibold tabular-nums text-rose-400">
-                        − {e.currency === 'USD' ? usd(e.amount) : fc(e.amount)}
-                        {e.currency === 'USD' && <span className="ml-1 block text-[10px] font-normal text-slate-500">≈ {fc(e.amount_fc)}</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* Analytique par catégorie */}
+      <Card>
+        <SectionTitle icon={<PieIcon className="h-5 w-5" />} title="Dépenses par catégorie" subtitle="Où part l'argent" />
+        {byCat.length === 0 ? <EmptyState>Aucune dépense.</EmptyState> : (
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={byCat} dataKey="total" nameKey="category.name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3}>
+                  {byCat.map((r) => <Cell key={r.category.id} fill={r.category.color} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#0b101e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#fff' }} formatter={(v: number, _n, p: any) => [fc(v), p?.payload?.category?.name]} />
+                <Legend formatter={(_v, _e, i) => byCat[i as number]?.category.name} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-        </Card>
-      </div>
+        )}
+      </Card>
+
+      {/* Journal des dépenses — recherche & filtres avancés */}
+      <ExpensesTable expenses={expenses} categories={expenseCategories} subtitle="Rapport & hors-rapport — recherche, filtres catégorie / devise / période" />
     </div>
   );
 }
