@@ -27,10 +27,10 @@ begin
     join pg_namespace ns on ns.oid = rel.relnamespace
     where ns.nspname = 'public' and rel.relname = 'reports' and con.contype = 'u'
       and (
-        select array_agg(att.attname order by att.attname)
+        select array_agg(att.attname::text order by att.attname::text)
         from unnest(con.conkey) k
         join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
-      ) = array['pompiste_id','report_date']
+      ) = array['pompiste_id','report_date']::text[]
   loop
     execute format('alter table public.reports drop constraint %I', c.conname);
   end loop;
