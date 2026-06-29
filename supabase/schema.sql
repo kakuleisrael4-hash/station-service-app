@@ -106,9 +106,11 @@ create table if not exists public.reports (
   status report_status not null default 'brouillon',
   closed boolean not null default false,        -- clôturé (reconnu financièrement à la clôture journalière)
   closed_at timestamptz,
-  validated_at timestamptz, created_at timestamptz not null default now(),
-  constraint reports_balance_chk check (status <> 'valide' or ecart = 0),
-  unique (pompiste_id, report_date)
+  validated_at timestamptz, created_at timestamptz not null default now()
+  -- Pas de contrainte d'équilibre : la validation forcée (écart imputé en
+  -- manquant, ou surplus assumé) est une règle métier ; l'écart est tracé.
+  -- Pas d'unicité (pompiste_id, report_date) : un pompiste peut avoir plusieurs
+  -- rapports/shifts le même jour. Différenciés par created_at (heure d'insertion).
 );
 
 -- Relevés d'index par pompe (4 par rapport)

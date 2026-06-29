@@ -110,9 +110,11 @@ create table if not exists public.reports (
   status report_status not null default 'brouillon',
   closed boolean not null default false,        -- clôturé (reconnu financièrement à la clôture journalière)
   closed_at timestamptz,
-  validated_at timestamptz, created_at timestamptz not null default now(),
-  constraint reports_balance_chk check (status <> 'valide' or ecart = 0),
-  unique (pompiste_id, report_date)
+  validated_at timestamptz, created_at timestamptz not null default now()
+  -- Pas de contrainte d'équilibre : la validation forcée (écart imputé en
+  -- manquant, ou surplus assumé) est une règle métier ; l'écart est tracé.
+  -- Pas d'unicité (pompiste_id, report_date) : un pompiste peut avoir plusieurs
+  -- rapports/shifts le même jour. Différenciés par created_at (heure d'insertion).
 );
 
 -- Relevés d'index par pompe (4 par rapport)
@@ -522,6 +524,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users for each row execute function public.handle_new_user();
 
+
 -- ###### 2/3 RLS + STORAGE ######
 -- =====================================================================
 --  STATION KKC OIL — Row-Level Security v2
@@ -576,9 +579,11 @@ create policy pump_admin on public.pumps for all using (public.is_admin()) with 
 create policy mov_read on public.fuel_movements for select using (public.is_staff());
 create policy mov_admin on public.fuel_movements for all using (public.is_admin()) with check (public.is_admin());
 
--- CAISSE & DÉPENSES : admin uniquement
+-- CAISSE & DÉPENSES : admin écrit · viewer (auditeur) lit dépenses+catégories · pompiste aucun accès
 create policy cat_admin on public.expense_categories for all using (public.is_admin()) with check (public.is_admin());
+create policy cat_read on public.expense_categories for select using (public.is_staff());
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
+create policy exp_read on public.expenses for select using (public.is_staff());
 create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
 -- CLÔTURES : admin écrit, admin+viewer lisent
 create policy closing_read on public.daily_closings for select using (public.is_staff());
@@ -641,6 +646,7 @@ do $$ begin
     public.announcements, public.stock_logs, public.settings, public.landing_page_content,
     public.cash_entries, public.daily_closings;
 exception when others then null; end $$;
+
 
 -- ###### 3/3 DONNÉES DE RÉFÉRENCE ######
 -- =====================================================================
