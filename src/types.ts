@@ -13,6 +13,11 @@ export type MovementSource = 'livraison' | 'rapport' | 'ajustement';
 export type DebtStatus = 'en_attente' | 'soldee';
 export type OrderStatus = 'en_cours' | 'livre';
 export type Currency = 'FC' | 'USD';
+/** Décision de l'admin sur l'écart de caisse d'un rapport.
+ *  'aucun' = surplus/équilibré (rien à imputer) ·
+ *  'tolere' = déficit toléré (perte sèche, pompiste non pénalisé) ·
+ *  'debit_salaire' = déficit déduit du salaire (manquant officiel). */
+export type EcartDecision = 'aucun' | 'tolere' | 'debit_salaire';
 
 export interface AppUser {
   id: string;
@@ -262,6 +267,8 @@ export interface Report {
   total_usd_fc: number;
   total_encaisse: number; // X
   ecart: number;
+  montant_ecart: number; // écart constaté X − Y (négatif = déficit, positif = surplus)
+  decision_imputation: EcartDecision; // décision admin sur l'écart
   benefice: number; // marge nette générée par le rapport (FC)
 
   status: ReportStatus;
@@ -315,6 +322,8 @@ export interface ReportDraft {
   expenses: Expense[];
   final_stars: number | null;
   admin_comment: string;
+  montant_ecart?: number; // écart constaté X − Y (renseigné à la soumission)
+  decision_imputation?: EcartDecision; // décision admin (défaut 'aucun')
 }
 
 export interface ComputedReport {

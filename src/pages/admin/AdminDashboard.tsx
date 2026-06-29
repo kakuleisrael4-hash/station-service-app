@@ -77,7 +77,7 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2">Statut</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">PDF</th>
+                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2">Statut</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Écart</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">PDF</th>
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
                     {recent.map((r) => {
@@ -89,6 +89,15 @@ export default function AdminDashboard() {
                           <td className="py-2"><span className={`chip ${r.closed ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{r.closed ? 'Clôturé' : 'Enregistré'}</span></td>
                           <td className="py-2 text-right tabular-nums">{liters(r.essence_litrage + r.gasoil_litrage)}</td>
                           <td className="py-2 text-right tabular-nums">{fc(r.total_a_remettre)}</td>
+                          <td className="py-2 text-right tabular-nums">
+                            {Math.abs(r.montant_ecart ?? 0) < 1 ? <span className="text-slate-500">—</span> : (
+                              <span className={r.montant_ecart < 0 ? 'text-rose-400' : 'text-fuel-400'} title={r.decision_imputation === 'tolere' ? 'Déficit toléré (perte sèche)' : r.decision_imputation === 'debit_salaire' ? 'Déficit déduit du salaire' : 'Surplus en caisse'}>
+                                {r.montant_ecart > 0 ? '+' : ''}{fc(r.montant_ecart)}
+                                {r.decision_imputation === 'tolere' && <span className="ml-1 text-[10px] text-energy-300">toléré</span>}
+                                {r.decision_imputation === 'debit_salaire' && <span className="ml-1 text-[10px] text-rose-300">salaire</span>}
+                              </span>
+                            )}
+                          </td>
                           <td className={`py-2 text-right tabular-nums ${r.manquant > 0 ? 'text-rose-400' : 'text-slate-500'}`}>{r.manquant > 0 ? fc(r.manquant) : '—'}</td>
                           <td className="py-2 text-right"><button onClick={() => exportReportPDF(r, p?.display_name ?? 'Pompiste')} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF"><FileDown className="ml-auto h-4 w-4" /></button></td>
                         </tr>

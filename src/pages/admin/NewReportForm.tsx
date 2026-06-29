@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Fuel, Droplets, Plus, Trash2, Banknote, DollarSign, AlertTriangle, CheckCircle2,
-  Save, Calculator, Star as StarIcon, MessageSquare, Loader2, GaugeCircle,
+  Save, Calculator, Star as StarIcon, MessageSquare, Loader2, GaugeCircle, ShieldCheck, UserMinus,
 } from 'lucide-react';
 import { Card, SectionTitle, StarRating, FloatingAlert } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { computeReport, validateDraft, starsFromScore } from '@/lib/calc';
 import { lastClosingIndexByPump } from '@/lib/selectors';
-import { BILLETS_FC, PUMPS } from '@/constants';
+import { BILLETS_FC, BALANCE_TOLERANCE, PUMPS } from '@/constants';
 import { fc, usd, liters, todayISO } from '@/lib/format';
-import type { Currency, Expense, ReportDraft } from '@/types';
+import type { Currency, EcartDecision, Expense, ReportDraft } from '@/types';
 
 const toNum = (v: string) => {
   const n = parseFloat(String(v).replace(',', '.'));
@@ -96,8 +96,10 @@ export default function NewReportForm() {
   // L'écart ne bloque plus : seuls les autres contrôles (pompiste, catégories, taux…) bloquent.
   const canSave = errors.length === 0 && !!f.pompiste_id;
   const suggestedStars = starsFromScore(c.auto_score);
-  // Écart de caisse = Y − X. Positif = manque (imputé au pompiste) ; négatif = surplus.
+  // Déficit = Y − X (positif = manque). Surplus = X − Y (= c.ecart, positif).
   const shortfall = c.total_a_remettre - c.total_encaisse;
+  const isDeficit = shortfall > BALANCE_TOLERANCE;
+  const isSurplus = c.ecart > BALANCE_TOLERANCE;
 
   function addExpense() {
     set('expenses', [...f.expenses, { id: crypto.randomUUID?.() ?? String(Math.random()), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
@@ -105,11 +107,13 @@ export default function NewReportForm() {
   const updateExpense = (id: string, patch: Partial<Expense>) => set('expenses', f.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const removeExpense = (id: string) => set('expenses', f.expenses.filter((e) => e.id !== id));
 
-  async function doSave(d: ReportDraft) {
+  async function doSave(d: ReportDraft, decision: EcartDecision) {
     if (!user) return;
     setBusy(true);
     try {
-      await createReport({ ...d, final_stars: stars ?? suggestedStars }, user);
+      // montant_ecart = écart constaté X − Y au moment de la décision (c.ecart,
+      // avant tout report sur le manquant). decision = traitement choisi.
+      await createReport({ ...d, final_stars: stars ?? suggestedStars, montant_ecart: c.ecart, decision_imputation: decision }, user);
       setDone(true);
       setTimeout(() => { setF(blank); setStars(null); setDone(false); }, 1800);
     } catch (e) {
@@ -119,17 +123,19 @@ export default function NewReportForm() {
 
   function submit() {
     if (!canSave || !user) return;
-    // Caisse équilibrée → enregistrement direct. Sinon → pop-up de confirmation.
-    if (!c.is_balanced) { setConfirmOpen(true); return; }
-    void doSave(draft);
+    // DÉFICIT (X < Y) → choix obligatoire (Tolérer / Déduire). Sinon (équilibré
+    // ou SURPLUS X ≥ Y) → enregistrement direct, sans pénalité ('aucun').
+    if (isDeficit) { setConfirmOpen(true); return; }
+    void doSave(draft, 'aucun');
   }
 
-  // Force la validation : l'écart manquant (Y − X, si positif) devient un manquant
-  // officiel ajouté au manquant saisi, ce qui rééquilibre le rapport (Y' = X).
-  function confirmForce() {
-    const extra = Math.max(shortfall, 0);
+  // Tolérer : écart consigné en perte sèche, pompiste NON pénalisé (manquant inchangé).
+  // Déduire : le déficit (Y − X) est ajouté au manquant → imputé au salaire et
+  //           rééquilibre le rapport (Y' = X).
+  function decide(decision: EcartDecision) {
     setConfirmOpen(false);
-    void doSave({ ...draft, manquant: draft.manquant + extra });
+    if (decision === 'debit_salaire') void doSave({ ...draft, manquant: draft.manquant + shortfall }, 'debit_salaire');
+    else void doSave(draft, 'tolere');
   }
 
   return (
@@ -275,15 +281,15 @@ export default function NewReportForm() {
             </dl>
           </Card>
 
-          <Card className={touched ? (c.is_balanced ? 'ring-1 ring-energy-400/50' : 'ring-1 ring-rose-500/50') : ''}>
+          <Card className={touched ? (isDeficit ? 'ring-1 ring-rose-500/50' : isSurplus ? 'ring-1 ring-fuel-400/50' : 'ring-1 ring-energy-400/50') : ''}>
             <div className="space-y-2 text-sm">
               <Line label="Billetage physique (X)" value={fc(c.total_encaisse)} />
               <Line label="À remettre (Y)" value={fc(c.total_a_remettre)} />
               <div className="my-1 border-t border-white/10" />
-              <div className="flex items-center justify-between"><span className="text-slate-400">Écart (X − Y)</span><span className={`font-bold tabular-nums ${c.is_balanced ? 'text-energy-400' : 'text-rose-400'}`}>{fc(c.ecart)}</span></div>
-              <div className={`mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${c.is_balanced ? 'bg-energy-500/15 text-energy-300' : 'bg-rose-500/15 text-rose-300'}`}>
-                {c.is_balanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                {c.is_balanced ? 'Caisse équilibrée (X = Y)' : 'Caisse déséquilibrée'}
+              <div className="flex items-center justify-between"><span className="text-slate-400">Écart (X − Y)</span><span className={`font-bold tabular-nums ${isDeficit ? 'text-rose-400' : isSurplus ? 'text-fuel-400' : 'text-energy-400'}`}>{fc(c.ecart)}</span></div>
+              <div className={`mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${isDeficit ? 'bg-rose-500/15 text-rose-300' : isSurplus ? 'bg-fuel-500/15 text-fuel-300' : 'bg-energy-500/15 text-energy-300'}`}>
+                {isDeficit ? <AlertTriangle className="h-4 w-4" /> : isSurplus ? <DollarSign className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                {isDeficit ? `Déficit de caisse — il manque ${fc(Math.abs(shortfall))}` : isSurplus ? `Surplus de caisse — +${fc(c.ecart)} (reste en caisse)` : 'Caisse équilibrée (X = Y)'}
               </div>
             </div>
           </Card>
@@ -313,38 +319,36 @@ export default function NewReportForm() {
         </div>
       </div>
 
-      <FloatingAlert show={touched && !c.is_balanced} kind="error">⚠ Billetage ≠ total à remettre — écart de {fc(Math.abs(c.ecart))}</FloatingAlert>
+      <FloatingAlert show={touched && isDeficit} kind="error">⚠ Déficit de caisse — il manque {fc(Math.abs(shortfall))} (décision requise à la validation)</FloatingAlert>
       <FloatingAlert show={done} kind="success">✓ Rapport enregistré — à clôturer dans « Clôture journalière » pour l'intégrer au capital</FloatingAlert>
 
-      {/* POP-UP : confirmation de validation forcée avec écart de caisse */}
+      {/* POP-UP DE DÉCISION : déficit de caisse (X < Y) — choix obligatoire */}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm" onClick={() => setConfirmOpen(false)}>
           <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-night-900 p-6 shadow-2xl ring-1 ring-rose-500/20">
+            className="w-full max-w-lg rounded-2xl border border-rose-500/40 bg-night-900 p-6 shadow-2xl ring-1 ring-rose-500/20">
             <div className="mb-3 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-6 w-6" /></div>
-              <h3 className="text-lg font-black text-rose-200">Écart de caisse détecté</h3>
+              <h3 className="text-lg font-black text-rose-200">Déficit de caisse détecté</h3>
             </div>
             <p className="text-sm leading-relaxed text-slate-300">
-              Un écart de caisse de <span className="font-bold tabular-nums text-rose-300">{fc(Math.abs(shortfall))}</span>{' '}
-              ({shortfall > 0 ? 'manque dans la caisse' : 'surplus dans la caisse'}) est détecté entre le billetage physique (X) et le total à remettre (Y).
+              Il manque <span className="font-bold tabular-nums text-rose-300">{fc(Math.abs(shortfall))}</span> dans la caisse physique (X)
+              par rapport au total à remettre (Y). Choisissez le traitement de cet écart :
             </p>
-            {shortfall > 0 ? (
-              <div className="mt-3 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200 ring-1 ring-rose-500/20">
-                En forçant, cet écart sera imputé comme <span className="font-bold">manquant officiel</span> sur le compte du pompiste
-                (déduit de son salaire net). Manquant total : <span className="font-bold tabular-nums">{fc(draft.manquant + shortfall)}</span>.
-              </div>
-            ) : (
-              <div className="mt-3 rounded-xl bg-fuel-500/10 px-4 py-3 text-sm text-fuel-200 ring-1 ring-fuel-500/20">
-                Surplus de caisse : le rapport sera enregistré tel quel (aucun manquant imputé).
-              </div>
-            )}
-            <p className="mt-3 text-sm font-semibold text-slate-200">Souhaitez-vous forcer la validation ?</p>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setConfirmOpen(false)} className="btn flex-1 bg-white/5 text-slate-200 hover:bg-white/10">Annuler</button>
-              <button onClick={confirmForce} disabled={busy} className="btn flex-1 bg-rose-500 font-bold text-night-950 hover:bg-rose-400">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />} Forcer la validation
+            <div className="mt-4 space-y-3">
+              <button onClick={() => decide('tolere')} disabled={busy}
+                className="group w-full rounded-xl border border-energy-500/30 bg-energy-500/[0.07] p-4 text-left transition hover:bg-energy-500/15">
+                <div className="flex items-center gap-2 font-bold text-energy-300"><ShieldCheck className="h-5 w-5" /> 🟢 Tolérer l'écart</div>
+                <p className="mt-1 text-xs text-slate-400">Erreur excusable. L'écart est consigné comme <span className="font-semibold text-slate-300">perte sèche d'exploitation</span> — le pompiste n'est <span className="font-semibold">pas</span> pénalisé (manquant et salaire inchangés, note 10/10).</p>
               </button>
+              <button onClick={() => decide('debit_salaire')} disabled={busy}
+                className="group w-full rounded-xl border border-rose-500/30 bg-rose-500/[0.07] p-4 text-left transition hover:bg-rose-500/15">
+                <div className="flex items-center gap-2 font-bold text-rose-300"><UserMinus className="h-5 w-5" /> 🔴 Déduire sur le salaire</div>
+                <p className="mt-1 text-xs text-slate-400">L'écart devient un <span className="font-semibold text-slate-300">manquant officiel</span> : ajouté au cumul du mois et déduit du salaire net. Manquant total du rapport : <span className="font-bold tabular-nums text-rose-300">{fc(draft.manquant + shortfall)}</span>.</p>
+              </button>
+            </div>
+            <div className="mt-5 flex">
+              <button onClick={() => setConfirmOpen(false)} className="btn ml-auto bg-white/5 text-slate-200 hover:bg-white/10">Annuler</button>
             </div>
           </motion.div>
         </div>

@@ -46,6 +46,8 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
     total_usd_fc: n(row.total_usd_fc),
     total_encaisse: n(row.total_encaisse),
     ecart: n(row.ecart),
+    montant_ecart: n(row.montant_ecart ?? row.ecart),
+    decision_imputation: row.decision_imputation ?? 'aucun',
     benefice: n(row.benefice),
     status: row.status,
     closed: !!row.closed,
@@ -163,7 +165,10 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         await sb.from('expenses').insert(draft.expenses.map((e) => ({ report_id: ins.id, category_id: e.category_id, description: e.description, amount: e.amount, currency: e.currency, date: draft.report_date })));
       }
       const { data: upd, error: upErr } = await sb.from('reports')
-        .update({ status: 'valide', final_stars: draft.final_stars, admin_comment: draft.admin_comment })
+        .update({
+          status: 'valide', final_stars: draft.final_stars, admin_comment: draft.admin_comment,
+          montant_ecart: draft.montant_ecart ?? 0, decision_imputation: draft.decision_imputation ?? 'aucun',
+        })
         .eq('id', ins.id).select().single();
       if (upErr || !upd) throw new Error(upErr?.message ?? 'Validation refusée (billetage ≠ total ?).');
 

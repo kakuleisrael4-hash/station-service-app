@@ -142,7 +142,9 @@ export const mockDb: StationDB = {
       gasoil_litrage: c.gasoil_litrage, gasoil_montant: c.gasoil_montant,
       total_depenses: c.total_depenses, total_a_remettre: c.total_a_remettre,
       total_billetage_fc: c.total_billetage_fc, total_usd_fc: c.total_usd_fc,
-      total_encaisse: c.total_encaisse, ecart: c.ecart, benefice: c.benefice,
+      total_encaisse: c.total_encaisse, ecart: c.ecart,
+      montant_ecart: draft.montant_ecart ?? c.ecart, decision_imputation: draft.decision_imputation ?? 'aucun',
+      benefice: c.benefice,
       status: 'valide', closed: false, closed_at: null, validated_at: new Date().toISOString(), created_at: new Date().toISOString(),
     };
     store.reports = [report, ...store.reports];

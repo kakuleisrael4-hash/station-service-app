@@ -102,6 +102,9 @@ create table if not exists public.reports (
   total_usd_fc numeric(16,2) not null default 0,
   total_encaisse numeric(16,2) not null default 0,
   ecart numeric(16,2) not null default 0,
+  montant_ecart numeric(16,2) not null default 0,                 -- écart constaté X − Y (− = déficit, + = surplus)
+  decision_imputation text not null default 'aucun'
+    check (decision_imputation in ('aucun','tolere','debit_salaire')),
   benefice numeric(16,2) not null default 0,   -- marge nette du rapport (FC)
   status report_status not null default 'brouillon',
   closed boolean not null default false,        -- clôturé (reconnu financièrement à la clôture journalière)
