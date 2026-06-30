@@ -224,6 +224,20 @@ create table if not exists public.announcements (
   created_at timestamptz not null default now()
 );
 
+-- Paiements de salaire (clôture RH d'une période)
+create table if not exists public.salary_payments (
+  id uuid primary key default gen_random_uuid(),
+  pompiste_id uuid references public.pompiste_profiles (id) on delete set null,
+  mois_concerne text not null,                 -- période "YYYY-MM"
+  date_paiement date not null default current_date,
+  temps_travail numeric(10,2) not null default 0,
+  temps_unite text not null default 'jours' check (temps_unite in ('jours','heures')),
+  montant_paye_fc numeric(16,2) not null default 0,
+  montant_paye_usd numeric(16,2) not null default 0,
+  valide_par uuid references public.users (id),
+  created_at timestamptz not null default now()
+);
+
 -- -------------------- PARAMÈTRES GLOBAUX (singleton) -----------------
 create table if not exists public.settings (
   id boolean primary key default true,     -- une seule ligne (id = true)
@@ -473,11 +487,13 @@ begin
         + coalesce((select sum(amount) from public.debt_payments where currency='FC'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
+        - coalesce((select sum(montant_paye_fc) from public.salary_payments),0)
         - coalesce((select sum(case when status='livre' then purchase_price else deposit end) from public.supplier_orders),0);
   v_usd := coalesce((select sum(total_usd) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
-        - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0);
+        - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0)
+        - coalesce((select sum(montant_paye_usd) from public.salary_payments),0);
   v_caisse := v_fc + v_usd * v_taux;
   v_stock := coalesce((select sum(current_l*sale_price_fc) from public.cisterns),0);
   -- Dettes recouvrables converties en FC (×taux si la dette est en USD)
@@ -503,6 +519,29 @@ drop trigger if exists trg_cap_payments on public.debt_payments;
 create trigger trg_cap_payments after insert on public.debt_payments for each statement execute function public.trg_snapshot_capital();
 drop trigger if exists trg_cap_cash on public.cash_entries;
 create trigger trg_cap_cash after insert or update or delete on public.cash_entries for each statement execute function public.trg_snapshot_capital();
+drop trigger if exists trg_cap_salary on public.salary_payments;
+create trigger trg_cap_salary after insert or update or delete on public.salary_payments for each statement execute function public.trg_snapshot_capital();
+
+-- RPC : paiement officiel d'un salaire (réservé Admin)
+create or replace function public.pay_salary(
+  p_pompiste_id uuid, p_mois text, p_date date, p_temps numeric, p_unite text, p_fc numeric, p_usd numeric
+) returns void language plpgsql security definer set search_path = public as $$
+declare puser uuid;
+begin
+  if not public.is_admin() then raise exception 'Action réservée à l''administrateur.'; end if;
+  insert into public.salary_payments(pompiste_id, mois_concerne, date_paiement, temps_travail, temps_unite, montant_paye_fc, montant_paye_usd, valide_par)
+    values (p_pompiste_id, p_mois, coalesce(p_date, current_date), coalesce(p_temps, 0),
+            coalesce(p_unite, 'jours'), coalesce(p_fc, 0), coalesce(p_usd, 0), auth.uid());
+  update public.pompiste_profiles set cumul_manquants_mois = 0 where id = p_pompiste_id returning user_id into puser;
+  if puser is not null then
+    insert into public.notifications(user_id, type, title, body, meta)
+    values (puser, 'info', '💰 Salaire versé',
+      'Votre salaire pour le mois de ' || p_mois || ' a été versé le ' || coalesce(p_date, current_date)
+        || '. Temps enregistré : ' || coalesce(p_temps, 0) || ' ' || coalesce(p_unite, 'jours') || '.',
+      jsonb_build_object('fc', p_fc, 'usd', p_usd, 'mois', p_mois));
+  end if;
+  perform public.snapshot_capital();
+end $$;
 
 -- Vue paie : net = base - cumul manquants
 create or replace view public.v_payroll as

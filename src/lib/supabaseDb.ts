@@ -81,7 +81,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     async signOut() { await sb.auth.signOut(); },
 
     async loadAll(): Promise<StationData> {
-      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, closings, capital, stockLogs, announcements, settingsRow, notifs, salary, landingRow] =
+      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, closings, capital, stockLogs, announcements, settingsRow, notifs, salary, salaryPays, landingRow] =
         await Promise.all([
           sb.from('users').select('*'),
           sb.from('pompiste_profiles').select('*').order('display_name'),
@@ -103,6 +103,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           sb.from('settings').select('*').limit(1).maybeSingle(),
           sb.from('notifications').select('*').order('created_at', { ascending: false }),
           sb.from('salary_history').select('*').order('changed_at', { ascending: false }),
+          sb.from('salary_payments').select('*').order('date_paiement', { ascending: false }),
           sb.from('landing_page_content').select('*').limit(1).maybeSingle(),
         ]);
       const s = settingsRow.data as any;
@@ -147,6 +148,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         } : DEFAULT_LANDING,
         notifications: (notifs.data ?? []) as any,
         salaryHistory: (salary.data ?? []) as any,
+        salaryPayments: (salaryPays.data ?? []).map((p: any) => ({ ...p, temps_travail: n(p.temps_travail), montant_paye_fc: n(p.montant_paye_fc), montant_paye_usd: n(p.montant_paye_usd) })) as any,
       };
     },
 
@@ -207,6 +209,15 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     },
     async updateSalary(pompisteId, salary) {
       const { error } = await sb.from('pompiste_profiles').update({ base_salary: salary.base_salary, base_salary_usd: salary.base_salary_usd }).eq('id', pompisteId);
+      if (error) throw new Error(error.message);
+    },
+    async paySalary(input) {
+      // Fonction SQL transactionnelle : insert paie + reset cumul manquants + notif + snapshot capital.
+      const { error } = await sb.rpc('pay_salary', {
+        p_pompiste_id: input.pompiste_id, p_mois: input.mois_concerne, p_date: input.date_paiement,
+        p_temps: input.temps_travail, p_unite: input.temps_unite,
+        p_fc: input.montant_paye_fc, p_usd: input.montant_paye_usd,
+      });
       if (error) throw new Error(error.message);
     },
     async addExpenseCategory(name, color) {
@@ -345,6 +356,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'debts' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_orders' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'capital_history' }, cb)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'salary_payments' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'landing_page_content' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_logs' }, cb)

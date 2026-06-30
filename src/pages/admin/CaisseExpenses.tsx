@@ -9,9 +9,9 @@ import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
 import type { Currency } from '@/types';
 
 export default function CaisseExpenses() {
-  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, settings, addExpense, addCashEntry, addExpenseCategory } = useData();
+  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, salaryPayments, settings, addExpense, addCashEntry, addExpenseCategory } = useData();
   const taux = settings.taux_journalier;
-  const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux, cashEntries);
+  const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
   const period = currentPeriod();
   const monthExp = expenses.filter((e) => e.date.startsWith(period)).reduce((s, e) => s + e.amount_fc, 0);
   const byCat = expensesByCategory(expenses, expenseCategories);

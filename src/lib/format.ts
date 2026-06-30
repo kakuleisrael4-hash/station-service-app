@@ -43,3 +43,22 @@ export function todayISO(): string {
 export function currentPeriod(): string {
   return new Date().toISOString().slice(0, 7); // YYYY-MM
 }
+
+/** Libellé lisible d'une période "YYYY-MM" -> "Juillet 2026". */
+export function monthLabel(period: string): string {
+  const [y, m] = period.split('-').map(Number);
+  if (!y || !m) return period;
+  const label = new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Liste de N dernières périodes (YYYY-MM) en partant du mois courant. */
+export function recentPeriods(count = 12): string[] {
+  const out: string[] = [];
+  const d = new Date();
+  for (let i = 0; i < count; i++) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    d.setMonth(d.getMonth() - 1);
+  }
+  return out;
+}

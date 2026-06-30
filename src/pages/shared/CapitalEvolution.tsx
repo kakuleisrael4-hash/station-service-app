@@ -7,10 +7,10 @@ import { computeCapital, capitalByCurrency, salesByFuel } from '@/lib/selectors'
 import { fc, usd, liters, shortDate, fullDate } from '@/lib/format';
 
 export default function CapitalEvolution() {
-  const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, cashEntries, capitalHistory, settings } = useData();
+  const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, cashEntries, salaryPayments, capitalHistory, settings } = useData();
   const taux = settings.taux_journalier;
-  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries);
-  const cc = capitalByCurrency(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries);
+  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
+  const cc = capitalByCurrency(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
   const sales = salesByFuel(reports);
 
   // On s'assure que le dernier point reflète le capital courant calculé.

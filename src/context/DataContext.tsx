@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AppUser, Attachment, LandingContent, OrderStatus, PompisteProfile, Pump, ReportDraft, Role, Settings } from '@/types';
-import { getDb, type NewCashInput, type NewDebtInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type SalaryParts, type StationData } from '@/lib/db';
+import { getDb, type NewCashInput, type NewDebtInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type SalaryParts, type SalaryPaymentInput, type StationData } from '@/lib/db';
 import { DEFAULT_LANDING, DEFAULT_SETTINGS } from '@/constants';
 
 interface DataCtx extends StationData {
@@ -11,6 +11,7 @@ interface DataCtx extends StationData {
   deleteReport: (reportId: string) => Promise<void>;
   deleteClosing: (closingId: string) => Promise<void>;
   updateSalary: (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => Promise<void>;
+  paySalary: (input: SalaryPaymentInput, paidBy: AppUser) => Promise<void>;
   addExpenseCategory: (name: string, color: string) => Promise<void>;
   addExpense: (input: NewExpenseInput) => Promise<void>;
   addCashEntry: (input: NewCashInput) => Promise<void>;
@@ -55,6 +56,7 @@ const EMPTY: StationData = {
   landing: DEFAULT_LANDING,
   notifications: [],
   salaryHistory: [],
+  salaryPayments: [],
 };
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -103,6 +105,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [db, refresh],
   );
 
+  const paySalary = useCallback(
+    async (input: SalaryPaymentInput, paidBy: AppUser) => {
+      await db.paySalary(input, paidBy);
+      await refresh();
+    },
+    [db, refresh],
+  );
+
   const markNotificationRead = useCallback(
     async (id: string) => {
       await db.markNotificationRead(id);
@@ -133,7 +143,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

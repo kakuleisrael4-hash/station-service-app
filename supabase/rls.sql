@@ -16,6 +16,7 @@ language sql stable security definer set search_path=public as $$ select id from
 alter table public.users               enable row level security;
 alter table public.pompiste_profiles   enable row level security;
 alter table public.salary_history      enable row level security;
+alter table public.salary_payments     enable row level security;
 alter table public.cisterns            enable row level security;
 alter table public.pumps               enable row level security;
 alter table public.fuel_movements      enable row level security;
@@ -42,6 +43,9 @@ create policy pp_read on public.pompiste_profiles for select using (public.is_st
 create policy pp_admin on public.pompiste_profiles for all using (public.is_admin()) with check (public.is_admin());
 create policy sh_read on public.salary_history for select using (public.is_staff() or pompiste_id=public.my_pompiste_id());
 create policy sh_admin on public.salary_history for all using (public.is_admin()) with check (public.is_admin());
+-- PAIES : staff (admin+viewer) + le pompiste concerné en lecture ; admin en écriture
+create policy salpay_read on public.salary_payments for select using (public.is_staff() or pompiste_id=public.my_pompiste_id());
+create policy salpay_admin on public.salary_payments for all using (public.is_admin()) with check (public.is_admin());
 
 -- INFRASTRUCTURE : admin + viewer en lecture, admin en écriture (pompiste = AUCUN accès)
 create policy cist_read on public.cisterns for select using (public.is_staff());
@@ -127,5 +131,5 @@ do $$ begin
     public.pompiste_profiles, public.debts, public.supplier_orders,
     public.capital_history, public.fuel_movements, public.notifications,
     public.announcements, public.stock_logs, public.settings, public.landing_page_content,
-    public.cash_entries, public.daily_closings;
+    public.cash_entries, public.daily_closings, public.salary_payments;
 exception when others then null; end $$;

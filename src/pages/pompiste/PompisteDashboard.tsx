@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Megaphone, LineChart as LineIcon, Wallet, Star, MessageSquare, Droplets, Fuel, TrendingDown, FileDown } from 'lucide-react';
+import { Megaphone, LineChart as LineIcon, Wallet, Star, MessageSquare, Droplets, Fuel, TrendingDown, FileDown, BadgeCheck } from 'lucide-react';
 import { exportPayslipPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
@@ -9,7 +9,7 @@ import { Card, SectionTitle, StatCard, StarRating, EmptyState } from '@/componen
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { pompisteDaily, payrollOf } from '@/lib/selectors';
-import { fc, usd, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
+import { fc, usd, liters, shortDate, fullDate, currentPeriod, monthLabel } from '@/lib/format';
 
 type Tab = 'communique' | 'performances' | 'compte';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -20,10 +20,13 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function PompisteDashboard() {
   const { user } = useAuth();
-  const { reports, pompistes, settings } = useData();
+  const { reports, pompistes, settings, salaryPayments } = useData();
   const [tab, setTab] = useState<Tab>('communique');
 
   const me = pompistes.find((p) => p.id === user?.pompiste_id || p.user_id === user?.id);
+  const myPayments = salaryPayments
+    .filter((p) => p.pompiste_id === me?.id)
+    .sort((a, b) => b.date_paiement.localeCompare(a.date_paiement));
   const myReports = reports
     .filter((r) => r.pompiste_id === me?.id && r.status === 'valide')
     .sort((a, b) => b.report_date.localeCompare(a.report_date));
@@ -140,6 +143,7 @@ export default function PompisteDashboard() {
       )}
 
       {tab === 'compte' && (
+        <div className="space-y-5">
         <div className="grid gap-5 lg:grid-cols-2">
           <Card>
             <SectionTitle icon={<Wallet className="h-5 w-5" />} title="Fiche de paie en direct" subtitle={`Période ${period}`}
@@ -179,6 +183,36 @@ export default function PompisteDashboard() {
               )}
             </div>
           </Card>
+        </div>
+
+        {/* Historique des paies reçues */}
+        <Card>
+          <SectionTitle icon={<BadgeCheck className="h-5 w-5" />} title="Historique des paies" subtitle="Tous vos salaires déjà reçus" />
+          {myPayments.length === 0 ? (
+            <EmptyState>Aucun salaire versé pour le moment.</EmptyState>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                    <th className="pb-2">Période</th><th className="pb-2">Payé le</th><th className="pb-2 text-right">Temps</th><th className="pb-2 text-right">Reçu (FC)</th><th className="pb-2 text-right">Reçu (USD)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {myPayments.map((p) => (
+                    <tr key={p.id}>
+                      <td className="py-2 font-medium">{monthLabel(p.mois_concerne)}</td>
+                      <td className="py-2 text-slate-400">{fullDate(p.date_paiement)}</td>
+                      <td className="py-2 text-right tabular-nums">{p.temps_travail} {p.temps_unite}</td>
+                      <td className="py-2 text-right tabular-nums text-energy-400">{fc(p.montant_paye_fc)}</td>
+                      <td className="py-2 text-right tabular-nums text-fuel-300">{p.montant_paye_usd > 0 ? usd(p.montant_paye_usd) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
         </div>
       )}
     </DashboardShell>

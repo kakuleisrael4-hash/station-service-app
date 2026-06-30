@@ -2,7 +2,7 @@
 //  Sélecteurs / agrégations dérivées (purs, testables).
 // =====================================================================
 import type {
-  CashEntry, Cistern, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SupplierOrder,
+  CashEntry, Cistern, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SalaryPayment, SupplierOrder,
 } from '@/types';
 import { currentPeriod } from './format';
 
@@ -193,6 +193,7 @@ export function computeCaisse(
   orders: SupplierOrder[],
   taux: number,
   cashEntries: CashEntry[] = [],
+  salaryPayments: SalaryPayment[] = [],
 ): CaisseBalance {
   // Caisse = uniquement les rapports CLÔTURÉS (reconnaissance financière à la clôture).
   const valides = reports.filter((r) => r.status === 'valide' && r.closed);
@@ -206,8 +207,11 @@ export function computeCaisse(
   const fournisseurs = orders.reduce((s, o) => s + orderCashOut(o), 0); // décaissements en FC
   const apportFC = cashEntries.filter((c) => c.currency === 'FC').reduce((s, c) => s + c.amount, 0);
   const apportUSD = cashEntries.filter((c) => c.currency === 'USD').reduce((s, c) => s + c.amount, 0);
-  const fc = salesFC + payFC + apportFC - expFC - fournisseurs;
-  const usd = salesUSD + payUSD + apportUSD - expUSD;
+  // Salaires versés = décaissements de la caisse (par devise).
+  const salaireFC = salaryPayments.reduce((s, p) => s + p.montant_paye_fc, 0);
+  const salaireUSD = salaryPayments.reduce((s, p) => s + p.montant_paye_usd, 0);
+  const fc = salesFC + payFC + apportFC - expFC - fournisseurs - salaireFC;
+  const usd = salesUSD + payUSD + apportUSD - expUSD - salaireUSD;
   return { fc, usd, total_fc: fc + usd * taux };
 }
 
@@ -249,8 +253,9 @@ export function computeCapital(
   orders: SupplierOrder[],
   taux: number,
   cashEntries: CashEntry[] = [],
+  salaryPayments: SalaryPayment[] = [],
 ): CapitalBreakdown {
-  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries).total_fc;
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments).total_fc;
   const sv = stockValue(cisterns);
   const dr = recoverableDebtsFC(debts, debtPayments, taux);
   const ov = pendingOrdersValue(orders);
@@ -301,8 +306,9 @@ export function capitalByCurrency(
   orders: SupplierOrder[],
   taux: number,
   cashEntries: CashEntry[] = [],
+  salaryPayments: SalaryPayment[] = [],
 ): CapitalByCurrency {
-  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries);
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments);
   const enAttente = debts.filter((d) => d.status === 'en_attente');
   const debtsUSD = enAttente.filter((d) => d.currency === 'USD').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);
   const debtsFC = enAttente.filter((d) => d.currency === 'FC').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);

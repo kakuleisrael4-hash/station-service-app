@@ -27,9 +27,11 @@ import type {
   ReportDraft,
   Role,
   SalaryHistory,
+  SalaryPayment,
   Settings,
   StockLog,
   SupplierOrder,
+  TempsUnite,
 } from '@/types';
 import { mockDb } from './mockDb';
 import { createSupabaseDb } from './supabaseDb';
@@ -55,6 +57,7 @@ export interface StationData {
   landing: LandingContent;
   notifications: Notification[];
   salaryHistory: SalaryHistory[];
+  salaryPayments: SalaryPayment[];
 }
 
 export interface NewExpenseInput {
@@ -100,6 +103,15 @@ export interface SalaryParts {
   base_salary: number;
   base_salary_usd: number;
 }
+export interface SalaryPaymentInput {
+  pompiste_id: string;
+  mois_concerne: string; // "YYYY-MM"
+  date_paiement: string;
+  temps_travail: number;
+  temps_unite: TempsUnite;
+  montant_paye_fc: number;
+  montant_paye_usd: number;
+}
 
 export interface StationDB {
   readonly isMock: boolean;
@@ -120,6 +132,8 @@ export interface StationDB {
   /** Suppression d'une clôture : ré-ouvre ses rapports et annule ses impacts (stock, manquant RH, capital). */
   deleteClosing(closingId: string): Promise<void>;
   updateSalary(pompisteId: string, salary: SalaryParts, changedBy: AppUser): Promise<void>;
+  /** Paiement officiel d'un salaire : historise, remet le cumul manquants à 0, décaisse la caisse. */
+  paySalary(input: SalaryPaymentInput, paidBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;
   addCashEntry(input: NewCashInput): Promise<void>;

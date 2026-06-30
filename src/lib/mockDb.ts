@@ -12,9 +12,9 @@ import type {
 import { computeReport, expenseFC } from './calc';
 import { computeCapital } from './selectors';
 import { fileToDataUrl, fileToRawDataUrl } from './files';
-import { currentPeriod, todayISO } from './format';
+import { currentPeriod, monthLabel, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
-import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
+import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, SalaryPaymentInput, StationDB, StationData } from './db';
 
 const STORE_KEY = 'kkcoil.store.v11';
 const SESSION_KEY = 'kkcoil.session.v11';
@@ -59,7 +59,7 @@ function seed(): StationData {
     users, pompistes, reports: [], cisterns, pumps, fuelMovements: [],
     expenseCategories, expenses: [], debts: [], debtPayments: [], supplierOrders: [],
     cashEntries: [], dailyClosings: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
-    notifications, salaryHistory: [],
+    notifications, salaryHistory: [], salaryPayments: [],
   };
 }
 
@@ -68,7 +68,7 @@ function seed(): StationData {
 const REQUIRED_KEYS: (keyof StationData)[] = [
   'users', 'pompistes', 'reports', 'cisterns', 'pumps', 'fuelMovements',
   'expenseCategories', 'expenses', 'debts', 'debtPayments', 'supplierOrders',
-  'cashEntries', 'dailyClosings', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory',
+  'cashEntries', 'dailyClosings', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory', 'salaryPayments',
 ];
 
 function load(): StationData {
@@ -115,7 +115,7 @@ function rollbackReportImpacts(r: Report) {
 
 /** Recalcule et upsert le point de capital du jour. */
 function snapshotCapital() {
-  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries);
+  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries, store.salaryPayments);
   const date = todayISO();
   const point: CapitalPoint = { date, ...b };
   const idx = store.capitalHistory.findIndex((p) => p.date === date);
@@ -275,6 +275,30 @@ export const mockDb: StationDB = {
     pp.base_salary_usd = salary.base_salary_usd;
     const increased = salary.base_salary > oldFc || salary.base_salary_usd > oldUsd;
     if (increased && pp.user_id) store.notifications = [{ id: uid(), user_id: pp.user_id, type: 'augmentation_salaire', title: '🎉 Salaire augmenté !', body: `Votre salaire de base est mis à jour : ${salary.base_salary.toLocaleString('fr-FR')} FC + ${salary.base_salary_usd.toLocaleString('fr-FR')} USD. Félicitations !`, meta: { oldFc, oldUsd, newFc: salary.base_salary, newUsd: salary.base_salary_usd }, read: false, created_at: new Date().toISOString() }, ...store.notifications];
+    emit();
+  },
+
+  async paySalary(input: SalaryPaymentInput, paidBy) {
+    const pp = store.pompistes.find((p) => p.id === input.pompiste_id);
+    if (!pp) return;
+    store.salaryPayments = [{
+      id: uid(), pompiste_id: input.pompiste_id, mois_concerne: input.mois_concerne,
+      date_paiement: input.date_paiement, temps_travail: input.temps_travail, temps_unite: input.temps_unite,
+      montant_paye_fc: input.montant_paye_fc, montant_paye_usd: input.montant_paye_usd,
+      valide_par: paidBy.id, created_at: new Date().toISOString(),
+    }, ...store.salaryPayments];
+    // Remise à zéro du cumul des manquants (nouveau cycle propre).
+    pp.cumul_manquants_mois = 0;
+    // Notification au pompiste.
+    if (pp.user_id) {
+      const label = monthLabel(input.mois_concerne);
+      store.notifications = [{
+        id: uid(), user_id: pp.user_id, type: 'info', title: '💰 Salaire versé',
+        body: `Votre salaire pour le mois de ${label} a été versé le ${input.date_paiement}. Temps enregistré : ${input.temps_travail} ${input.temps_unite}.`,
+        meta: { fc: input.montant_paye_fc, usd: input.montant_paye_usd, mois: input.mois_concerne }, read: false, created_at: new Date().toISOString(),
+      }, ...store.notifications];
+    }
+    snapshotCapital(); // décaissement -> caisse/capital à jour
     emit();
   },
 

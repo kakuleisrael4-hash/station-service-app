@@ -53,6 +53,22 @@ export interface SalaryHistory {
   changed_at: string;
 }
 
+export type TempsUnite = 'jours' | 'heures';
+
+/** Paiement officiel d'un salaire (clôture RH d'une période). */
+export interface SalaryPayment {
+  id: string;
+  pompiste_id: string;
+  mois_concerne: string; // période "YYYY-MM"
+  date_paiement: string; // date de remise de l'argent
+  temps_travail: number; // quantité (jours ou heures)
+  temps_unite: TempsUnite;
+  montant_paye_fc: number;
+  montant_paye_usd: number;
+  valide_par?: string | null; // admin ayant validé
+  created_at: string;
+}
+
 // ----------------------- ARCHITECTURE PHYSIQUE -----------------------
 /** Citerne / cuve. 3 au total : 1 Gasoil + 2 Super. */
 export interface Cistern {
