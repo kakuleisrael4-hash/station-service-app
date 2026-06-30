@@ -196,6 +196,15 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         total_encaisse: t.enc, total_benefice: t.ben,
       });
     },
+    async deleteReport(reportId) {
+      // Fonction SQL transactionnelle : rollback stock + manquant RH + clôtures + capital.
+      const { error } = await sb.rpc('delete_report', { p_report_id: reportId });
+      if (error) throw new Error(error.message);
+    },
+    async deleteClosing(closingId) {
+      const { error } = await sb.rpc('delete_closing', { p_closing_id: closingId });
+      if (error) throw new Error(error.message);
+    },
     async updateSalary(pompisteId, salary) {
       const { error } = await sb.from('pompiste_profiles').update({ base_salary: salary.base_salary, base_salary_usd: salary.base_salary_usd }).eq('id', pompisteId);
       if (error) throw new Error(error.message);

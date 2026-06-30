@@ -1,16 +1,28 @@
 import { useState } from 'react';
-import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp, Fuel } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp, Fuel, Trash2, AlertTriangle, Eye, X } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import { useData } from '@/context/DataContext';
 import { fc, liters, shortDate, fullDate } from '@/lib/format';
+import type { DailyClosing as DailyClosingType } from '@/types';
 
 export default function DailyClosing() {
-  const { reports, pompistes, dailyClosings, closeDay } = useData();
+  const { reports, pompistes, dailyClosings, closeDay, deleteClosing } = useData();
   const open = reports
     .filter((r) => r.status === 'valide' && !r.closed)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<DailyClosingType | null>(null);
+  const [toDelete, setToDelete] = useState<DailyClosingType | null>(null);
+  const [delBusy, setDelBusy] = useState(false);
+  const nameOf = (id: string | null) => pompistes.find((p) => p.id === id)?.display_name ?? '—';
+
+  async function confirmDeleteClosing() {
+    if (!toDelete) return;
+    setDelBusy(true);
+    try { await deleteClosing(toDelete.id); setToDelete(null); setDetail(null); } finally { setDelBusy(false); }
+  }
 
   const selected = open.filter((r) => sel.has(r.id));
   const t = selected.reduce(
@@ -103,28 +115,104 @@ export default function DailyClosing() {
 
       {dailyClosings.length > 0 && (
         <Card>
-          <SectionTitle icon={<History className="h-5 w-5" />} title="Historique des clôtures" />
+          <SectionTitle icon={<History className="h-5 w-5" />} title="Historique des clôtures" subtitle="Cliquez une journée pour voir les rapports fusionnés" />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="pb-2">Clôturé le</th><th className="pb-2 text-right">Rapports</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">Encaissé</th><th className="pb-2 text-right">Bénéfice</th>
+                  <th className="pb-2">Clôturé le</th><th className="pb-2 text-right">Rapports</th><th className="pb-2 text-right">Super</th><th className="pb-2 text-right">Gasoil</th><th className="pb-2 text-right">Encaissé</th><th className="pb-2 text-right">Bénéfice</th><th className="pb-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {dailyClosings.slice(0, 15).map((d) => (
-                  <tr key={d.id}>
+                {dailyClosings.slice(0, 30).map((d) => (
+                  <tr key={d.id} onClick={() => setDetail(d)} className="cursor-pointer hover:bg-white/[0.03]">
                     <td className="py-2 text-slate-300">{fullDate(d.closed_at)}</td>
                     <td className="py-2 text-right tabular-nums">{d.report_count}</td>
-                    <td className="py-2 text-right tabular-nums">{liters(d.total_volume_l)}</td>
+                    <td className="py-2 text-right tabular-nums text-energy-300">{liters(d.total_super_l)}</td>
+                    <td className="py-2 text-right tabular-nums text-fuel-300">{liters(d.total_gasoil_l)}</td>
                     <td className="py-2 text-right tabular-nums">{fc(d.total_encaisse)}</td>
                     <td className="py-2 text-right tabular-nums text-energy-400">{fc(d.total_benefice)}</td>
+                    <td className="py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); setDetail(d); }} className="text-slate-400 hover:text-energy-400" title="Voir le détail"><Eye className="h-4 w-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setToDelete(d); }} className="text-slate-400 hover:text-rose-400" title="Supprimer la clôture"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Card>
+      )}
+
+      {/* MODAL DÉTAIL : rapports fusionnés dans une clôture */}
+      {detail && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm" onClick={() => setDetail(null)}>
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-night-900 p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-black text-energy-200">Détail de la clôture</h3>
+                <p className="text-sm text-slate-400">{fullDate(detail.closed_at)} · {detail.report_count} rapport{detail.report_count > 1 ? 's' : ''} fusionné{detail.report_count > 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setDetail(null)} className="btn-ghost !px-2"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <StatCard label="Super" value={liters(detail.total_super_l)} />
+              <StatCard label="Gasoil" value={liters(detail.total_gasoil_l)} />
+              <StatCard label="Encaissé" value={fc(detail.total_encaisse)} accent="text-energy-400" />
+              <StatCard label="Bénéfice" value={fc(detail.total_benefice)} accent="text-fuel-400" />
+            </div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Rapports individuels fusionnés</p>
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2 text-right">Super</th><th className="pb-2 text-right">Gasoil</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Écart</th>
+              </tr></thead>
+              <tbody className="divide-y divide-white/5">
+                {detail.report_ids.map((rid) => {
+                  const r = reports.find((x) => x.id === rid);
+                  if (!r) return <tr key={rid}><td className="py-2 text-slate-500" colSpan={6}>Rapport supprimé ({rid.slice(0, 8)}…)</td></tr>;
+                  return (
+                    <tr key={rid}>
+                      <td className="py-2 text-slate-400">{shortDate(r.report_date)}</td>
+                      <td className="py-2 font-medium">{nameOf(r.pompiste_id)}</td>
+                      <td className="py-2 text-right tabular-nums text-energy-300">{liters(r.essence_litrage)}</td>
+                      <td className="py-2 text-right tabular-nums text-fuel-300">{liters(r.gasoil_litrage)}</td>
+                      <td className="py-2 text-right tabular-nums">{fc(r.total_a_remettre)}</td>
+                      <td className={`py-2 text-right tabular-nums ${Math.abs(r.montant_ecart ?? 0) < 1 ? 'text-slate-500' : r.montant_ecart < 0 ? 'text-rose-400' : 'text-fuel-400'}`}>{Math.abs(r.montant_ecart ?? 0) < 1 ? '—' : `${r.montant_ecart > 0 ? '+' : ''}${fc(r.montant_ecart)}`}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => { setToDelete(detail); }} className="btn bg-rose-500/15 text-rose-300 hover:bg-rose-500/25"><Trash2 className="h-4 w-4" /> Supprimer cette clôture</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMATION : suppression d'une clôture */}
+      {toDelete && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm" onClick={() => !delBusy && setToDelete(null)}>
+          <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-night-900 p-6 shadow-2xl ring-1 ring-rose-500/20">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-6 w-6" /></div>
+              <h3 className="text-lg font-black text-rose-200">Supprimer cette clôture ?</h3>
+            </div>
+            <div className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200 ring-1 ring-rose-500/20">
+              Les {toDelete.report_count} rapport{toDelete.report_count > 1 ? 's' : ''} repasseront <span className="font-bold">« En cours »</span>. Le système va automatiquement ré-injecter le carburant dans les citernes, annuler les manquants imputés aux pompistes, et recalculer le capital.
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setToDelete(null)} disabled={delBusy} className="btn flex-1 bg-white/5 text-slate-200 hover:bg-white/10">Annuler</button>
+              <button onClick={confirmDeleteClosing} disabled={delBusy} className="btn flex-1 bg-rose-500 font-bold text-night-950 hover:bg-rose-400">
+                {delBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Supprimer
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

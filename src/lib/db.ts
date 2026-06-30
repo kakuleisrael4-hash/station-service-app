@@ -114,6 +114,10 @@ export interface StationDB {
   createReport(draft: ReportDraft, author: AppUser): Promise<Report>;
   /** Clôture journalière : consolide les rapports sélectionnés, applique les impacts (stock, RH, caisse, capital). */
   closeDay(reportIds: string[]): Promise<void>;
+  /** Suppression d'un rapport avec rollback en cascade (stock, manquant RH, clôtures, capital). */
+  deleteReport(reportId: string): Promise<void>;
+  /** Suppression d'une clôture : ré-ouvre ses rapports et annule ses impacts (stock, manquant RH, capital). */
+  deleteClosing(closingId: string): Promise<void>;
   updateSalary(pompisteId: string, salary: SalaryParts, changedBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;

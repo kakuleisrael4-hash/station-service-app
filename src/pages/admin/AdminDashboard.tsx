@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Megaphone, FilePlus2, Wallet, Gauge as GaugeIcon, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck } from 'lucide-react';
+import { Megaphone, FilePlus2, Wallet, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck, History, Fuel } from 'lucide-react';
 import { exportReportPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
+import ReportsHistory from '@/components/ReportsHistory';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
@@ -20,10 +21,11 @@ import { useData } from '@/context/DataContext';
 import { stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, currentPeriod } from '@/lib/format';
 
-type Tab = 'communique' | 'rapport' | 'cloture' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
+type Tab = 'communique' | 'rapport' | 'historique' | 'cloture' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'communique', label: 'Communiqué', icon: <Megaphone className="h-4 w-4" /> },
   { id: 'rapport', label: 'Nouveau Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
+  { id: 'historique', label: 'Historique', icon: <History className="h-4 w-4" /> },
   { id: 'cloture', label: 'Clôture journalière', icon: <CalendarCheck className="h-4 w-4" /> },
   { id: 'carburant', label: 'Carburant & Stocks', icon: <Droplets className="h-4 w-4" /> },
   { id: 'caisse', label: 'Caisse & Dépenses', icon: <Receipt className="h-4 w-4" /> },
@@ -37,12 +39,13 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('communique');
-  const { reports, pompistes, cisterns, settings } = useData();
+  const { reports, pompistes, cisterns, settings, deleteReport } = useData();
   const rh = stationRH(pompistes, settings.taux_journalier);
   const period = currentPeriod();
   const monthReports = reports.filter((r) => r.report_date.startsWith(period) && r.status === 'valide');
   const caisseMois = monthReports.reduce((s, r) => s + r.total_a_remettre, 0);
-  const volMois = monthReports.reduce((s, r) => s + r.essence_litrage + r.gasoil_litrage, 0);
+  const volSuper = monthReports.reduce((s, r) => s + r.essence_litrage, 0);
+  const volGasoil = monthReports.reduce((s, r) => s + r.gasoil_litrage, 0);
   const recent = [...reports].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6);
 
   return (
@@ -61,8 +64,8 @@ export default function AdminDashboard() {
           <AnnouncementsFeed />
           <div className="grid gap-4 sm:grid-cols-4">
             <StatCard label="Caisse du mois" value={fc(caisseMois)} accent="text-energy-400" />
-            <StatCard label="Volume vendu" value={liters(volMois)} icon={<GaugeIcon className="h-4 w-4" />} />
-            <StatCard label="Masse salariale" value={fc(rh.masseSalariale)} />
+            <StatCard label="Volume Super (mois)" value={liters(volSuper)} icon={<Droplets className="h-4 w-4 text-energy-400" />} accent="text-energy-300" />
+            <StatCard label="Volume Gasoil (mois)" value={liters(volGasoil)} icon={<Fuel className="h-4 w-4 text-fuel-400" />} accent="text-fuel-300" />
             <StatCard label="Manquants (mois)" value={fc(rh.totalManquants)} accent="text-rose-400" />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -77,7 +80,7 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2">Statut</th><th className="pb-2 text-right">Volume</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Écart</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">PDF</th>
+                    <th className="pb-2">Date</th><th className="pb-2">Pompiste</th><th className="pb-2">Statut</th><th className="pb-2 text-right">Super</th><th className="pb-2 text-right">Gasoil</th><th className="pb-2 text-right">À remettre</th><th className="pb-2 text-right">Écart</th><th className="pb-2 text-right">Manquant</th><th className="pb-2 text-right">PDF</th>
                   </tr></thead>
                   <tbody className="divide-y divide-white/5">
                     {recent.map((r) => {
@@ -87,7 +90,8 @@ export default function AdminDashboard() {
                           <td className="py-2">{shortDate(r.report_date)}</td>
                           <td className="py-2 font-medium">{p?.display_name ?? '—'}</td>
                           <td className="py-2"><span className={`chip ${r.closed ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{r.closed ? 'Clôturé' : 'Enregistré'}</span></td>
-                          <td className="py-2 text-right tabular-nums">{liters(r.essence_litrage + r.gasoil_litrage)}</td>
+                          <td className="py-2 text-right tabular-nums text-energy-300">{liters(r.essence_litrage)}</td>
+                          <td className="py-2 text-right tabular-nums text-fuel-300">{liters(r.gasoil_litrage)}</td>
                           <td className="py-2 text-right tabular-nums">{fc(r.total_a_remettre)}</td>
                           <td className="py-2 text-right tabular-nums">
                             {Math.abs(r.montant_ecart ?? 0) < 1 ? <span className="text-slate-500">—</span> : (
@@ -112,6 +116,7 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'rapport' && <NewReportForm />}
+      {tab === 'historique' && <ReportsHistory reports={reports} pompistes={pompistes} onDelete={deleteReport} />}
       {tab === 'cloture' && <DailyClosing />}
       {tab === 'carburant' && <FuelStockManagement canEdit />}
       {tab === 'caisse' && <CaisseExpenses />}

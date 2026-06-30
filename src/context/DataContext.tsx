@@ -8,6 +8,8 @@ interface DataCtx extends StationData {
   refresh: () => Promise<void>;
   createReport: (draft: ReportDraft, author: AppUser) => Promise<void>;
   closeDay: (reportIds: string[]) => Promise<void>;
+  deleteReport: (reportId: string) => Promise<void>;
+  deleteClosing: (closingId: string) => Promise<void>;
   updateSalary: (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => Promise<void>;
   addExpenseCategory: (name: string, color: string) => Promise<void>;
   addExpense: (input: NewExpenseInput) => Promise<void>;
@@ -89,6 +91,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const closeDay = useCallback(async (reportIds: string[]) => { await db.closeDay(reportIds); await refresh(); }, [db, refresh]);
+  const deleteReport = useCallback(async (reportId: string) => { await db.deleteReport(reportId); await refresh(); }, [db, refresh]);
+  const deleteClosing = useCallback(async (closingId: string) => { await db.deleteClosing(closingId); await refresh(); }, [db, refresh]);
 
   const updateSalary = useCallback(
     async (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => {
@@ -127,7 +131,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, updateSalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

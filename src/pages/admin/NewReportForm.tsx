@@ -153,8 +153,8 @@ export default function NewReportForm() {
               </select>
             </div>
             <div>
-              <label className="label">Date du rapport</label>
-              <input type="date" className="field" value={f.report_date} onChange={(e) => set('report_date', e.target.value)} />
+              <label className="label">Date du rapport * <span className="font-normal text-slate-500">(saisie manuelle — saisie décalée possible)</span></label>
+              <input type="date" className="field" value={f.report_date} max={todayISO()} onChange={(e) => set('report_date', e.target.value)} required />
             </div>
           </div>
         </Card>

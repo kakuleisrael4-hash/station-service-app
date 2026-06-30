@@ -90,6 +90,29 @@ const listeners = new Set<() => void>();
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 function emit() { localStorage.setItem(STORE_KEY, JSON.stringify(store)); listeners.forEach((l) => l()); }
 
+/**
+ * Annule les impacts d'un rapport CLÔTURÉ (rollback) :
+ *   1. ré-injecte le carburant faussement sorti dans les citernes,
+ *   2. supprime les mouvements de sortie liés au rapport,
+ *   3. décrémente le cumul des manquants du pompiste (si imputé).
+ * (La caisse/capital se recalculent ensuite via snapshotCapital, car le rapport
+ *  supprimé/ré-ouvert ne compte plus dans computeCaisse.)
+ */
+function rollbackReportImpacts(r: Report) {
+  const now = new Date().toISOString();
+  const byCistern = new Map<string, number>();
+  r.pump_readings.forEach((pr) => byCistern.set(pr.cistern_id, (byCistern.get(pr.cistern_id) ?? 0) + pr.litrage));
+  byCistern.forEach((vol, cid) => {
+    const cit = store.cisterns.find((c) => c.id === cid);
+    if (cit && vol > 0) { cit.current_l = Math.min(cit.capacity_l, cit.current_l + vol); cit.updated_at = now; }
+  });
+  store.fuelMovements = store.fuelMovements.filter((m) => !(m.ref_id === r.id && m.source === 'rapport'));
+  if (r.manquant > 0) {
+    const pp = store.pompistes.find((p) => p.id === r.pompiste_id);
+    if (pp) pp.cumul_manquants_mois = Math.max(0, pp.cumul_manquants_mois - r.manquant);
+  }
+}
+
 /** Recalcule et upsert le point de capital du jour. */
 function snapshotCapital() {
   const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries);
@@ -198,6 +221,46 @@ export const mockDb: StationDB = {
       total_super_l: superL, total_gasoil_l: gasL, total_volume_l: superL + gasL,
       total_encaisse: encaisse, total_benefice: benef, closed_by: 'u-admin', closed_at: now,
     }, ...store.dailyClosings];
+    snapshotCapital();
+    emit();
+  },
+
+  async deleteReport(reportId) {
+    const r = store.reports.find((x) => x.id === reportId);
+    if (!r) return;
+    if (r.closed) rollbackReportImpacts(r); // ré-injecte stock + annule manquant RH
+    // Détache le rapport des clôtures qui le contenaient (recalcule leurs totaux).
+    store.dailyClosings = store.dailyClosings
+      .map((d) => {
+        if (!d.report_ids.includes(reportId)) return d;
+        const ids = d.report_ids.filter((x) => x !== reportId);
+        if (ids.length === 0) return null; // clôture vide -> supprimée
+        const reps = store.reports.filter((x) => ids.includes(x.id));
+        const superL = reps.reduce((s, x) => s + x.essence_litrage, 0);
+        const gasL = reps.reduce((s, x) => s + x.gasoil_litrage, 0);
+        return {
+          ...d, report_ids: ids, report_count: ids.length,
+          total_super_l: superL, total_gasoil_l: gasL, total_volume_l: superL + gasL,
+          total_encaisse: reps.reduce((s, x) => s + x.total_encaisse, 0),
+          total_benefice: reps.reduce((s, x) => s + x.benefice, 0),
+        };
+      })
+      .filter(Boolean) as typeof store.dailyClosings;
+    store.expenses = store.expenses.filter((e) => e.report_id !== reportId); // dépenses du rapport
+    store.reports = store.reports.filter((x) => x.id !== reportId);
+    snapshotCapital();
+    emit();
+  },
+
+  async deleteClosing(closingId) {
+    const d = store.dailyClosings.find((x) => x.id === closingId);
+    if (!d) return;
+    // Ré-ouvre chaque rapport de la clôture et annule ses impacts (stock + manquant RH).
+    d.report_ids.forEach((rid) => {
+      const r = store.reports.find((x) => x.id === rid);
+      if (r && r.closed) { rollbackReportImpacts(r); r.closed = false; r.closed_at = null; }
+    });
+    store.dailyClosings = store.dailyClosings.filter((x) => x.id !== closingId);
     snapshotCapital();
     emit();
   },
