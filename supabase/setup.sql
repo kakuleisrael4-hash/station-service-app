@@ -224,6 +224,7 @@ create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null, body text not null,
   author_id uuid references public.users (id),
+  attachments jsonb not null default '[]'::jsonb,   -- [{ file_url, file_name, file_type }]
   created_at timestamptz not null default now()
 );
 
@@ -640,6 +641,17 @@ drop policy if exists "landing admin write" on storage.objects;
 create policy "landing admin write" on storage.objects for all
   using (bucket_id='landing' and public.is_admin())
   with check (bucket_id='landing' and public.is_admin());
+
+-- STORAGE : bucket « station-media-attachments » (pièces jointes des communiqués)
+insert into storage.buckets (id, name, public, file_size_limit)
+  values ('station-media-attachments','station-media-attachments',true,52428800)
+  on conflict (id) do update set public=true, file_size_limit=52428800;
+drop policy if exists "media public read" on storage.objects;
+create policy "media public read" on storage.objects for select using (bucket_id='station-media-attachments');
+drop policy if exists "media admin write" on storage.objects;
+create policy "media admin write" on storage.objects for all
+  using (bucket_id='station-media-attachments' and public.is_admin())
+  with check (bucket_id='station-media-attachments' and public.is_admin());
 
 -- REALTIME
 do $$ begin

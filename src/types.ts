@@ -188,11 +188,19 @@ export interface CapitalPoint {
 }
 
 // ------------------------ COMMUNIQUÉS & RÉGLAGES ---------------------
+/** Pièce jointe universelle d'un communiqué (image, vidéo, document…). */
+export interface Attachment {
+  file_url: string; // URL publique Storage (prod) ou data-URL (démo)
+  file_name: string; // nom d'origine, ex: consignes_securite.mp4
+  file_type: string; // type MIME, ex: video/mp4, image/png, application/pdf
+}
+
 export interface Announcement {
   id: string;
   title: string;
   body: string;
   author_id?: string | null;
+  attachments: Attachment[]; // 0..n fichiers de tout type
   created_at: string;
 }
 

@@ -11,7 +11,7 @@ import type {
 } from '@/types';
 import { computeReport, expenseFC } from './calc';
 import { computeCapital } from './selectors';
-import { fileToDataUrl } from './files';
+import { fileToDataUrl, fileToRawDataUrl } from './files';
 import { currentPeriod, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, StationDB, StationData } from './db';
@@ -359,9 +359,9 @@ export const mockDb: StationDB = {
     emit();
   },
 
-  async addAnnouncement(title, body, author) {
-    store.announcements = [{ id: uid(), title, body, author_id: author.id, created_at: new Date().toISOString() }, ...store.announcements];
-    emit();
+  async addAnnouncement(title, body, author, attachments = []) {
+    store.announcements = [{ id: uid(), title, body, author_id: author.id, attachments, created_at: new Date().toISOString() }, ...store.announcements];
+    try { emit(); } catch { throw new Error('Stockage local saturé : en mode démo, les pièces jointes volumineuses (vidéos) dépassent la capacité du navigateur. En production (Supabase Storage), aucune limite de ce type.'); }
   },
   async deleteAnnouncement(id) {
     store.announcements = store.announcements.filter((a) => a.id !== id);
@@ -448,6 +448,12 @@ export const mockDb: StationDB = {
   async uploadImage(file) {
     // Mode démo : image compressée stockée en data-URL dans le contenu.
     return fileToDataUrl(file);
+  },
+
+  async uploadAttachment(file) {
+    // Mode démo : data-URL brute (images compressées, autres fichiers tels quels).
+    const url = file.type.startsWith('image/') ? await fileToDataUrl(file) : await fileToRawDataUrl(file);
+    return { file_url: url, file_name: file.name, file_type: file.type || 'application/octet-stream' };
   },
 
   async markNotificationRead(id) {

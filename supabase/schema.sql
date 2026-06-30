@@ -220,6 +220,7 @@ create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null, body text not null,
   author_id uuid references public.users (id),
+  attachments jsonb not null default '[]'::jsonb,   -- [{ file_url, file_name, file_type }]
   created_at timestamptz not null default now()
 );
 

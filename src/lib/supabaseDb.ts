@@ -248,8 +248,8 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         await sb.from('fuel_movements').insert({ cistern_id: cisternId, kind: ecart > 0 ? 'entree' : 'sortie', volume_l: Math.abs(ecart), source: 'ajustement', label: 'Ajustement au relevé physique' });
       }
     },
-    async addAnnouncement(title, body, author) {
-      const { error } = await sb.from('announcements').insert({ title, body, author_id: author.id });
+    async addAnnouncement(title, body, author, attachments = []) {
+      const { error } = await sb.from('announcements').insert({ title, body, author_id: author.id, attachments });
       if (error) throw new Error(error.message);
     },
     async deleteAnnouncement(id) {
@@ -319,6 +319,18 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.storage.from('landing').upload(path, blob, { contentType: blob.type, upsert: false });
       if (error) throw new Error("Upload impossible. Le bucket « landing » existe-t-il ? Exécutez supabase/storage.sql. (" + error.message + ')');
       return sb.storage.from('landing').getPublicUrl(path).data.publicUrl;
+    },
+
+    async uploadAttachment(file) {
+      // Téléverse le fichier BRUT (images non recompressées, vidéos/docs tels quels)
+      // vers le bucket « station-media-attachments », en préservant le nom & le type.
+      const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const contentType = file.type || 'application/octet-stream';
+      const { error } = await sb.storage.from('station-media-attachments').upload(path, file, { contentType, upsert: false });
+      if (error) throw new Error("Téléversement impossible. Le bucket « station-media-attachments » existe-t-il ? Exécutez supabase/migration_announcements_media.sql. (" + error.message + ')');
+      const file_url = sb.storage.from('station-media-attachments').getPublicUrl(path).data.publicUrl;
+      return { file_url, file_name: file.name, file_type: contentType };
     },
 
     async markNotificationRead(id) {

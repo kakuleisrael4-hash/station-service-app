@@ -54,3 +54,13 @@ export async function fileToBlob(file: File, opts: ImageOpts = {}): Promise<Blob
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Conversion image échouée.'))), type, opts.quality ?? 0.82),
   );
 }
+
+/** Lit n'importe quel fichier (vidéo, doc, image…) en data-URL brute (sans compression). */
+export function fileToRawDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+}

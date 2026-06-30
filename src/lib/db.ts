@@ -6,6 +6,7 @@
 import type {
   Announcement,
   AppUser,
+  Attachment,
   CapitalPoint,
   CashEntry,
   Cistern,
@@ -131,8 +132,10 @@ export interface StationDB {
   addStockLog(cisternId: string, physicalL: number, note: string, adjust: boolean): Promise<void>;
 
   // Communiqués & paramètres
-  addAnnouncement(title: string, body: string, author: AppUser): Promise<void>;
+  addAnnouncement(title: string, body: string, author: AppUser, attachments?: Attachment[]): Promise<void>;
   deleteAnnouncement(id: string): Promise<void>;
+  /** Téléverse une pièce jointe universelle (vidéo, doc, image…) et renvoie ses métadonnées. */
+  uploadAttachment(file: File): Promise<Attachment>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   updatePump(pumpId: string, patch: Partial<Pick<Pump, 'cistern_id' | 'fuel'>>): Promise<void>;
   updateCisternCapacity(cisternId: string, capacityL: number): Promise<void>;
