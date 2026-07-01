@@ -36,7 +36,7 @@ export default function PompisteDashboard() {
   const period = currentPeriod();
   const monthReports = myReports.filter((r) => r.report_date.startsWith(period));
   const volMonth = monthReports.reduce((s, r) => s + r.essence_litrage + r.gasoil_litrage, 0);
-  const starsValues = myReports.map((r) => r.final_stars ?? Math.round((r.auto_score ?? 0) / 2)).filter((x) => x > 0);
+  const starsValues = myReports.map((r) => r.final_stars ?? 0).filter((x) => x > 0);
   const avgStars = starsValues.length ? Math.round(starsValues.reduce((a, b) => a + b, 0) / starsValues.length) : 0;
 
   const taux = settings.taux_journalier;
@@ -111,18 +111,12 @@ export default function PompisteDashboard() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <SectionTitle icon={<Star className="h-5 w-5" />} title="Mon évaluation" />
-              {last ? (
-                <div className="flex items-center gap-6">
-                  <div>
-                    <p className="text-xs uppercase text-slate-400">Note auto</p>
-                    <p className={`text-4xl font-black ${(last.auto_score ?? 0) >= 9 ? 'text-energy-400' : (last.auto_score ?? 0) >= 7 ? 'text-fuel-400' : 'text-rose-400'}`}>{last.auto_score ?? 0}<span className="text-lg text-slate-500">/10</span></p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase text-slate-400">Étoiles admin</p>
-                    <StarRating value={last.final_stars ?? Math.round((last.auto_score ?? 0) / 2)} readOnly />
-                  </div>
+              {last && last.final_stars ? (
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Note attribuée par l'admin</p>
+                  <StarRating value={last.final_stars} readOnly />
                 </div>
-              ) : <p className="text-sm text-slate-500">Aucune évaluation disponible.</p>}
+              ) : <p className="text-sm text-slate-500">Aucune note attribuée pour l'instant.</p>}
             </Card>
 
             {/* Suggestions */}

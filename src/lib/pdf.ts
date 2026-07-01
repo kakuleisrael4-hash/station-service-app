@@ -79,15 +79,33 @@ export async function exportReportPDF(report: Report, pompisteName: string) {
     columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' } },
   });
 
+  // Détail complet des dépenses mixtes (FC + USD) du rapport.
+  if (report.expenses && report.expenses.length > 0) {
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 6,
+      head: [['Dépense', 'Part FC', 'Part USD', 'Total FC']],
+      body: report.expenses.map((e) => [
+        e.description || '—',
+        (e.amount || 0) > 0 ? fc(e.amount) : '—',
+        (e.amount_usd || 0) > 0 ? usd(e.amount_usd) : '—',
+        fc(e.amount_fc),
+      ]),
+      headStyles: { fillColor: DARK, textColor: 255 },
+      styles: { fontSize: 8 },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+    });
+  }
+
   const rows: [string, string][] = [
-    ['Total Super', fc(report.essence_montant)],
-    ['Total Gasoil', fc(report.gasoil_montant)],
+    [`Total Super (${liters(report.essence_litrage)})`, fc(report.essence_montant)],
+    [`Total Gasoil (${liters(report.gasoil_litrage)})`, fc(report.gasoil_montant)],
     ['− Dépenses', fc(report.total_depenses)],
     ['− Manquant', fc(report.manquant)],
-    ['TOTAL À REMETTRE', fc(report.total_a_remettre)],
+    ['TOTAL À REMETTRE (Y)', fc(report.total_a_remettre)],
     ['Billetage encaissé (X)', fc(report.total_encaisse)],
     ['Écart (X − Y)', fc(report.ecart)],
-    ['Note', `${report.auto_score ?? 0}/10 · ${report.final_stars ?? 0}★`],
+    ['Décision écart', report.decision_imputation === 'tolere' ? 'Toléré (perte sèche)' : report.decision_imputation === 'debit_salaire' ? 'Déduit du salaire' : '—'],
+    ['Évaluation admin', report.final_stars ? `${report.final_stars}★` : 'Non notée'],
   ];
   autoTable(doc, {
     startY: (doc as any).lastAutoTable.finalY + 6,
@@ -96,7 +114,7 @@ export async function exportReportPDF(report: Report, pompisteName: string) {
     styles: { fontSize: 10 },
     columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } },
     didParseCell: (d: any) => {
-      if (d.row.raw[0] === 'TOTAL À REMETTRE') { d.cell.styles.textColor = GREEN; d.cell.styles.fontStyle = 'bold'; }
+      if (d.row.raw[0] === 'TOTAL À REMETTRE (Y)') { d.cell.styles.textColor = GREEN; d.cell.styles.fontStyle = 'bold'; }
       if (d.row.raw[0] === '− Manquant' && report.manquant > 0) d.cell.styles.textColor = [220, 38, 38];
     },
   });

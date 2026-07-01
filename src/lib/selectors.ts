@@ -27,7 +27,7 @@ export function leaderboard(
     .map((pompiste) => {
       const rs = reports.filter((r) => r.pompiste_id === pompiste.id && inPeriod(r, period));
       const volume = rs.reduce((s, r) => s + r.essence_litrage + r.gasoil_litrage, 0);
-      const stars = rs.map((r) => r.final_stars ?? Math.round((r.auto_score ?? 0) / 2)).filter((x) => x > 0);
+      const stars = rs.map((r) => r.final_stars ?? 0).filter((x) => x > 0);
       const avgStars = stars.length ? stars.reduce((a, b) => a + b, 0) / stars.length : 0;
       return { pompiste, volume, avgStars, reports: rs.length, points: 0 };
     });
@@ -202,8 +202,9 @@ export function computeCaisse(
   const payFC = debtPayments.filter((p) => p.currency === 'FC').reduce((s, p) => s + p.amount, 0);
   const payUSD = debtPayments.filter((p) => p.currency === 'USD').reduce((s, p) => s + p.amount, 0);
   const stand = expenses.filter((e) => !e.report_id);
-  const expFC = stand.filter((e) => e.currency === 'FC').reduce((s, e) => s + e.amount, 0);
-  const expUSD = stand.filter((e) => e.currency === 'USD').reduce((s, e) => s + e.amount, 0);
+  // Dépenses mixtes : la part FC sort du compartiment FC, la part USD du compartiment USD.
+  const expFC = stand.reduce((s, e) => s + (e.amount || 0), 0);
+  const expUSD = stand.reduce((s, e) => s + (e.amount_usd || 0), 0);
   const fournisseurs = orders.reduce((s, o) => s + orderCashOut(o), 0); // décaissements en FC
   const apportFC = cashEntries.filter((c) => c.currency === 'FC').reduce((s, c) => s + c.amount, 0);
   const apportUSD = cashEntries.filter((c) => c.currency === 'USD').reduce((s, c) => s + c.amount, 0);

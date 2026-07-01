@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle } from 'lucide-react';
+import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle, Trash2 } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import ExpensesTable from '@/components/ExpensesTable';
 import { useData } from '@/context/DataContext';
@@ -9,16 +9,31 @@ import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
 import type { Currency } from '@/types';
 
 export default function CaisseExpenses() {
-  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, salaryPayments, settings, addExpense, addCashEntry, addExpenseCategory } = useData();
+  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, salaryPayments, settings, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addExpenseCategory, deleteExpenseCategory } = useData();
   const taux = settings.taux_journalier;
   const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
   const period = currentPeriod();
   const monthExp = expenses.filter((e) => e.date.startsWith(period)).reduce((s, e) => s + e.amount_fc, 0);
   const byCat = expensesByCategory(expenses, expenseCategories);
 
-  const [exp, setExp] = useState<{ category_id: string; description: string; amount: string; currency: Currency; date: string }>({ category_id: '', description: '', amount: '', currency: 'FC', date: todayISO() });
+  const [exp, setExp] = useState<{ category_id: string; description: string; amount_fc: string; amount_usd: string; date: string }>({ category_id: '', description: '', amount_fc: '', amount_usd: '', date: todayISO() });
   const [cat, setCat] = useState({ name: '', color: '#10b981' });
   const [busy, setBusy] = useState(false);
+  const expTotalFc = (parseFloat(exp.amount_fc) || 0) + (parseFloat(exp.amount_usd) || 0) * taux;
+
+  async function removeCategory(id: string, name: string) {
+    const linked = expenses.filter((e) => e.category_id === id).length;
+    const msg = linked > 0
+      ? `⚠ ${linked} dépense(s) sont liées à « ${name} ». Elles seront conservées mais dé-catégorisées. Supprimer la catégorie ?`
+      : `Supprimer la catégorie « ${name} » ?`;
+    if (window.confirm(msg)) await deleteExpenseCategory(id);
+  }
+  async function removeCashEntry(id: string, motif: string) {
+    if (window.confirm(`Supprimer l'apport « ${motif} » ? Le montant sera retiré de la caisse (recalcul du capital).`)) await deleteCashEntry(id);
+  }
+  async function removeExpense(id: string) {
+    if (window.confirm('Supprimer cette dépense ? La caisse et le capital seront réajustés.')) await deleteExpense(id);
+  }
 
   // --- Apport de fonds (hors rapport) ---
   const [apport, setApport] = useState<{ currency: Currency; amount: string; motif: string; date: string }>({ currency: 'FC', amount: '', motif: '', date: todayISO() });
@@ -34,12 +49,13 @@ export default function CaisseExpenses() {
   }
 
   async function submitExpense() {
-    const amount = parseFloat(exp.amount);
-    if (!exp.category_id || !exp.description || !Number.isFinite(amount) || amount <= 0) return;
+    const fcPart = parseFloat(exp.amount_fc) || 0;
+    const usdPart = parseFloat(exp.amount_usd) || 0;
+    if (!exp.category_id || !exp.description || (fcPart <= 0 && usdPart <= 0)) return;
     setBusy(true);
     try {
-      await addExpense({ category_id: exp.category_id, description: exp.description, amount, currency: exp.currency, date: exp.date });
-      setExp({ category_id: '', description: '', amount: '', currency: 'FC', date: todayISO() });
+      await addExpense({ category_id: exp.category_id, description: exp.description, amount: fcPart, amount_usd: usdPart, date: exp.date });
+      setExp({ category_id: '', description: '', amount_fc: '', amount_usd: '', date: todayISO() });
     } finally { setBusy(false); }
   }
   async function submitCategory() {
@@ -85,6 +101,7 @@ export default function CaisseExpenses() {
                     <td className="py-2"><span className="chip bg-energy-500/15 text-energy-300">Entrée · Apport externe</span></td>
                     <td className="py-2 text-slate-300">{c.motif}</td>
                     <td className="py-2 text-right font-semibold tabular-nums text-energy-400">+ {c.currency === 'USD' ? usd(c.amount) : fc(c.amount)}</td>
+                    <td className="py-2 pl-2 text-right"><button onClick={() => removeCashEntry(c.id, c.motif)} className="text-slate-500 hover:text-rose-400" title="Supprimer cet apport"><Trash2 className="h-4 w-4" /></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -108,20 +125,17 @@ export default function CaisseExpenses() {
             <div><label className="label">Date</label><input type="date" className="field" value={exp.date} onChange={(e) => setExp({ ...exp, date: e.target.value })} /></div>
             <div className="sm:col-span-2"><label className="label">Description</label><input className="field" placeholder="Ex: Facture SNEL" value={exp.description} onChange={(e) => setExp({ ...exp, description: e.target.value })} /></div>
             <div>
-              <label className="label">Devise</label>
-              <select className="field" value={exp.currency} onChange={(e) => setExp({ ...exp, currency: e.target.value as Currency })}>
-                <option value="FC">FC (Franc)</option><option value="USD">USD (Dollar)</option>
-              </select>
+              <label className="label flex items-center gap-1"><Banknote className="h-3 w-3" /> Montant en FC</label>
+              <input type="number" className="field" placeholder="0" value={exp.amount_fc} onChange={(e) => setExp({ ...exp, amount_fc: e.target.value })} />
             </div>
             <div>
-              <label className="label">Montant ({exp.currency})</label>
-              <input type="number" className="field" placeholder="0" value={exp.amount} onChange={(e) => setExp({ ...exp, amount: e.target.value })} />
+              <label className="label flex items-center gap-1"><DollarSign className="h-3 w-3" /> Montant en USD</label>
+              <input type="number" className="field" placeholder="0" value={exp.amount_usd} onChange={(e) => setExp({ ...exp, amount_usd: e.target.value })} />
             </div>
           </div>
-          {exp.currency === 'USD' && exp.amount && (
-            <p className="mt-2 text-sm text-energy-300">≈ <span className="font-bold tabular-nums">{fc((parseFloat(exp.amount) || 0) * taux)}</span> au taux du jour ({taux} FC/$).</p>
-          )}
-          <button onClick={submitExpense} disabled={busy} className="btn-primary mt-4">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Enregistrer la dépense</button>
+          <p className="mt-2 text-sm text-slate-400">Dépense mixte possible (FC + USD). Coût total consolidé : <span className="font-bold tabular-nums text-energy-300">{fc(expTotalFc)}</span>
+            {parseFloat(exp.amount_usd) > 0 && <span className="text-slate-500"> — dont {usd(parseFloat(exp.amount_usd) || 0)} × {taux}</span>}.</p>
+          <button onClick={submitExpense} disabled={busy || (!(parseFloat(exp.amount_fc) > 0) && !(parseFloat(exp.amount_usd) > 0))} className="btn-primary mt-4">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Enregistrer la dépense</button>
         </Card>
 
         {/* Catégories */}
@@ -129,8 +143,9 @@ export default function CaisseExpenses() {
           <SectionTitle icon={<Tag className="h-5 w-5" />} title="Catégories de dépenses" />
           <div className="mb-3 flex flex-wrap gap-2">
             {expenseCategories.map((c) => (
-              <span key={c.id} className="chip" style={{ background: `${c.color}22`, color: c.color }}>
+              <span key={c.id} className="chip group" style={{ background: `${c.color}22`, color: c.color }}>
                 <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />{c.name}
+                <button onClick={() => removeCategory(c.id, c.name)} className="ml-1 text-current/60 hover:text-rose-400" title="Supprimer la catégorie"><Trash2 className="h-3 w-3" /></button>
               </span>
             ))}
           </div>
@@ -160,8 +175,8 @@ export default function CaisseExpenses() {
         )}
       </Card>
 
-      {/* Journal des dépenses — recherche & filtres avancés */}
-      <ExpensesTable expenses={expenses} categories={expenseCategories} subtitle="Rapport & hors-rapport — recherche, filtres catégorie / devise / période" />
+      {/* Journal des dépenses — recherche & filtres avancés + suppression */}
+      <ExpensesTable expenses={expenses} categories={expenseCategories} onDelete={removeExpense} subtitle="Rapport & hors-rapport — recherche, filtres catégorie / devise / période" />
     </div>
   );
 }

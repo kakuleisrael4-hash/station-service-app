@@ -137,9 +137,10 @@ create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   report_id uuid references public.reports (id) on delete cascade,
   category_id uuid references public.expense_categories (id),
-  description text not null, amount numeric(14,2) not null default 0,
-  currency currency not null default 'FC',
-  amount_fc numeric(16,2) not null default 0,    -- converti (rempli par trigger)
+  description text not null, amount numeric(14,2) not null default 0,   -- part FC
+  amount_usd numeric(14,2) not null default 0,   -- part USD (dépense mixte)
+  currency currency not null default 'FC',        -- legacy (conservé)
+  amount_fc numeric(16,2) not null default 0,    -- total consolidé (rempli par trigger)
   date date not null default current_date,
   created_at timestamptz not null default now()
 );
@@ -327,16 +328,12 @@ drop trigger if exists trg_readings_sync on public.report_pump_readings;
 create trigger trg_readings_sync after insert or update or delete on public.report_pump_readings
   for each row execute function public.readings_sync();
 
--- 3a) Conversion devise -> amount_fc (USD * taux du jour, sinon = amount)
+-- 3a) Total consolidé -> amount_fc = part FC + part USD × taux du jour
 create or replace function public.expense_to_fc() returns trigger language plpgsql as $$
 declare t numeric;
 begin
-  if new.currency = 'USD' then
-    select taux_journalier into t from public.settings limit 1;
-    new.amount_fc := new.amount * coalesce(t, 0);
-  else
-    new.amount_fc := new.amount;
-  end if;
+  select taux_journalier into t from public.settings limit 1;
+  new.amount_fc := coalesce(new.amount, 0) + coalesce(new.amount_usd, 0) * coalesce(t, 0);
   return new;
 end $$;
 drop trigger if exists trg_expense_fc on public.expenses;

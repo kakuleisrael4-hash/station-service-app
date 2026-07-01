@@ -32,7 +32,7 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
     billetage: row.billetage ?? {},
     expenses: expenses
       .filter((e) => e.report_id === row.id)
-      .map((e) => ({ id: e.id, category_id: e.category_id, description: e.description, amount: n(e.amount), currency: e.currency ?? 'FC', amount_fc: n(e.amount_fc ?? e.amount), date: e.date, report_id: e.report_id })),
+      .map((e) => ({ id: e.id, category_id: e.category_id, description: e.description, amount: n(e.amount), amount_usd: n(e.amount_usd), currency: e.currency ?? 'FC', amount_fc: n(e.amount_fc ?? e.amount), date: e.date, report_id: e.report_id })),
     auto_score: row.auto_score,
     final_stars: row.final_stars,
     admin_comment: row.admin_comment,
@@ -116,7 +116,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         pumps: (pumps.data ?? []) as any,
         fuelMovements: (movements.data ?? []).map((m: any) => ({ ...m, volume_l: n(m.volume_l) })) as any,
         expenseCategories: (cats.data ?? []) as any,
-        expenses: (expenses.data ?? []).map((e: any) => ({ ...e, amount: n(e.amount), amount_fc: n(e.amount_fc ?? e.amount), currency: e.currency ?? 'FC' })) as any,
+        expenses: (expenses.data ?? []).map((e: any) => ({ ...e, amount: n(e.amount), amount_usd: n(e.amount_usd), amount_fc: n(e.amount_fc ?? e.amount), currency: e.currency ?? 'FC' })) as any,
         debts: (debts.data ?? []).map((d: any) => ({ ...d, liters: n(d.liters), total_amount: n(d.total_amount), currency: d.currency ?? 'FC' })) as any,
         debtPayments: (payments.data ?? []).map((p: any) => ({ ...p, amount: n(p.amount), currency: p.currency ?? 'FC' })) as any,
         supplierOrders: (orders.data ?? []).map((o: any) => ({ ...o, volume_l: n(o.volume_l), purchase_price: n(o.purchase_price), deposit: n(o.deposit) })) as any,
@@ -164,7 +164,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         draft.pumps.map((p) => ({ report_id: ins.id, pump_id: p.pump_id, index_open: p.index_open, index_close: p.index_close })),
       );
       if (draft.expenses.length) {
-        await sb.from('expenses').insert(draft.expenses.map((e) => ({ report_id: ins.id, category_id: e.category_id, description: e.description, amount: e.amount, currency: e.currency, date: draft.report_date })));
+        await sb.from('expenses').insert(draft.expenses.map((e) => ({ report_id: ins.id, category_id: e.category_id, description: e.description, amount: e.amount || 0, amount_usd: e.amount_usd || 0, currency: 'FC', date: draft.report_date })));
       }
       const { data: upd, error: upErr } = await sb.from('reports')
         .update({
@@ -224,12 +224,27 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.from('expense_categories').insert({ name, color });
       if (error) throw new Error(error.message);
     },
+    async deleteExpenseCategory(id) {
+      // Dé-catégorise les dépenses liées, puis supprime la catégorie.
+      await sb.from('expenses').update({ category_id: null }).eq('category_id', id);
+      const { error } = await sb.from('expense_categories').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    },
     async addExpense(input: NewExpenseInput) {
-      const { error } = await sb.from('expenses').insert({ category_id: input.category_id, description: input.description, amount: input.amount, currency: input.currency, date: input.date });
+      // Dépense mixte : part FC (amount) + part USD (amount_usd). Le trigger calcule amount_fc.
+      const { error } = await sb.from('expenses').insert({ category_id: input.category_id, description: input.description, amount: input.amount || 0, amount_usd: input.amount_usd || 0, currency: 'FC', date: input.date });
+      if (error) throw new Error(error.message);
+    },
+    async deleteExpense(id) {
+      const { error } = await sb.from('expenses').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
     async addCashEntry(input) {
       const { error } = await sb.from('cash_entries').insert({ currency: input.currency, amount: input.amount, motif: input.motif, date: input.date });
+      if (error) throw new Error(error.message);
+    },
+    async deleteCashEntry(id) {
+      const { error } = await sb.from('cash_entries').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
     async addDebt(input: NewDebtInput) {

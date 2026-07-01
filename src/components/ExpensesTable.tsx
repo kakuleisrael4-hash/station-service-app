@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Filter, Receipt } from 'lucide-react';
+import { Search, Filter, Receipt, Trash2 } from 'lucide-react';
 import { Card, SectionTitle, EmptyState } from '@/components/ui';
 import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
 import type { Currency, Expense, ExpenseCategory } from '@/types';
@@ -19,13 +19,15 @@ interface Props {
   categories: ExpenseCategory[];
   title?: string;
   subtitle?: string;
+  /** Si fourni (Admin), affiche un bouton de suppression par ligne. */
+  onDelete?: (id: string) => Promise<void> | void;
 }
 
 /**
  * Journal des dépenses filtrable et cherchable (partagé Admin & Viewer).
  * Colonnes : Date · Description · Catégorie · Source · Montant d'origine · ≈ FC.
  */
-export default function ExpensesTable({ expenses, categories, title = 'Journal des dépenses', subtitle = 'Recherche, filtres et conversion FC' }: Props) {
+export default function ExpensesTable({ expenses, categories, title = 'Journal des dépenses', subtitle = 'Recherche, filtres et conversion FC', onDelete }: Props) {
   const [q, setQ] = useState('');
   const [catId, setCatId] = useState('');
   const [cur, setCur] = useState<'all' | Currency>('all');
@@ -43,7 +45,8 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
     return [...expenses]
       .filter((e) => {
         if (catId && e.category_id !== catId) return false;
-        if (cur !== 'all' && e.currency !== cur) return false;
+        if (cur === 'FC' && !(e.amount > 0)) return false;
+        if (cur === 'USD' && !(e.amount_usd > 0)) return false;
         if (period === 'today' && e.date !== today) return false;
         if (period === 'week' && e.date < weekStart) return false;
         if (period === 'month' && !e.date.startsWith(month)) return false;
@@ -99,8 +102,10 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
                 <th className="py-2 pr-2">Description</th>
                 <th className="py-2 pr-2">Catégorie</th>
                 <th className="py-2 pr-2">Source</th>
-                <th className="py-2 pr-2 text-right">Montant d'origine</th>
-                <th className="py-2 text-right">≈ FC</th>
+                <th className="py-2 pr-2 text-right">Part FC</th>
+                <th className="py-2 pr-2 text-right">Part USD</th>
+                <th className="py-2 pr-2 text-right">Total FC</th>
+                {onDelete && <th className="py-2 text-right"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -114,10 +119,14 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
                       <span className="chip" style={{ background: `${c?.color ?? '#64748b'}22`, color: c?.color ?? '#94a3b8' }}>{c?.name ?? 'Sans catégorie'}</span>
                     </td>
                     <td className="py-2 pr-2 text-xs text-slate-500">{e.report_id ? 'Rapport' : 'Hors-rapport'}</td>
-                    <td className="py-2 pr-2 text-right font-semibold tabular-nums text-rose-400">
-                      − {e.currency === 'USD' ? usd(e.amount) : fc(e.amount)}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-slate-300">{fc(e.amount_fc)}</td>
+                    <td className="py-2 pr-2 text-right tabular-nums text-slate-300">{e.amount > 0 ? fc(e.amount) : '—'}</td>
+                    <td className="py-2 pr-2 text-right tabular-nums text-fuel-300">{e.amount_usd > 0 ? usd(e.amount_usd) : '—'}</td>
+                    <td className="py-2 pr-2 text-right font-semibold tabular-nums text-rose-400">− {fc(e.amount_fc)}</td>
+                    {onDelete && (
+                      <td className="py-2 text-right">
+                        <button onClick={() => onDelete(e.id)} className="text-slate-500 hover:text-rose-400" title="Supprimer la dépense"><Trash2 className="h-4 w-4" /></button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

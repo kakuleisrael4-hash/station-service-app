@@ -63,8 +63,8 @@ export interface StationData {
 export interface NewExpenseInput {
   category_id: string | null;
   description: string;
-  amount: number;
-  currency: Currency;
+  amount: number; // part FC
+  amount_usd: number; // part USD
   date: string;
 }
 export interface NewDebtInput {
@@ -135,8 +135,14 @@ export interface StationDB {
   /** Paiement officiel d'un salaire : historise, remet le cumul manquants à 0, décaisse la caisse. */
   paySalary(input: SalaryPaymentInput, paidBy: AppUser): Promise<void>;
   addExpenseCategory(name: string, color: string): Promise<void>;
+  /** Supprime une catégorie de dépense ; les dépenses liées sont dé-catégorisées (category_id = null). */
+  deleteExpenseCategory(id: string): Promise<void>;
   addExpense(input: NewExpenseInput): Promise<void>;
+  /** Supprime une dépense ; réajuste caisse + capital. */
+  deleteExpense(id: string): Promise<void>;
   addCashEntry(input: NewCashInput): Promise<void>;
+  /** Supprime un apport de fonds (rollback) ; réajuste caisse + capital. */
+  deleteCashEntry(id: string): Promise<void>;
   addDebt(input: NewDebtInput): Promise<void>;
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;

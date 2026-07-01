@@ -132,14 +132,17 @@ export interface ExpenseCategory {
   color: string;
 }
 
-/** Dépense — liée à un rapport (report_id) ou hors-rapport (null). */
+/** Dépense — liée à un rapport (report_id) ou hors-rapport (null).
+ *  Dépense MIXTE : peut combiner une part FC (`amount`) ET une part USD
+ *  (`amount_usd`). Total consolidé : amount_fc = amount + amount_usd × taux. */
 export interface Expense {
   id: string;
   category_id: string | null;
   description: string;
-  amount: number; // montant brut dans la devise choisie
-  currency: Currency;
-  amount_fc: number; // valeur convertie en FC (capturée à la saisie)
+  amount: number; // part payée en FC
+  amount_usd: number; // part payée en USD
+  currency: Currency; // legacy (conservé pour compat ; 'FC' par défaut)
+  amount_fc: number; // total consolidé en FC (capturé à la saisie)
   date: string;
   report_id?: string | null;
   created_at?: string;
@@ -363,7 +366,7 @@ export interface ComputedReport {
   total_encaisse: number; // X
   ecart: number;
   is_balanced: boolean;
-  auto_score: number;
+  auto_score: number | null; // notation auto supprimée (toujours null)
   marge_super: number; // PV - PA Super (FC/L)
   marge_gasoil: number; // PV - PA Gasoil (FC/L)
   benefice: number; // litrage_super*marge_super + litrage_gasoil*marge_gasoil

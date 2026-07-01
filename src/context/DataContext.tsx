@@ -13,8 +13,11 @@ interface DataCtx extends StationData {
   updateSalary: (pompisteId: string, salary: SalaryParts, changedBy: AppUser) => Promise<void>;
   paySalary: (input: SalaryPaymentInput, paidBy: AppUser) => Promise<void>;
   addExpenseCategory: (name: string, color: string) => Promise<void>;
+  deleteExpenseCategory: (id: string) => Promise<void>;
   addExpense: (input: NewExpenseInput) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   addCashEntry: (input: NewCashInput) => Promise<void>;
+  deleteCashEntry: (id: string) => Promise<void>;
   addDebt: (input: NewDebtInput) => Promise<void>;
   addDebtPayment: (debtId: string, amount: number, date: string) => Promise<void>;
   createSupplierOrder: (input: NewOrderInput) => Promise<void>;
@@ -122,8 +125,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const addExpenseCategory = useCallback(async (name: string, color: string) => { await db.addExpenseCategory(name, color); await refresh(); }, [db, refresh]);
+  const deleteExpenseCategory = useCallback(async (id: string) => { await db.deleteExpenseCategory(id); await refresh(); }, [db, refresh]);
   const addExpense = useCallback(async (input: NewExpenseInput) => { await db.addExpense(input); await refresh(); }, [db, refresh]);
+  const deleteExpense = useCallback(async (id: string) => { await db.deleteExpense(id); await refresh(); }, [db, refresh]);
   const addCashEntry = useCallback(async (input: NewCashInput) => { await db.addCashEntry(input); await refresh(); }, [db, refresh]);
+  const deleteCashEntry = useCallback(async (id: string) => { await db.deleteCashEntry(id); await refresh(); }, [db, refresh]);
   const addDebt = useCallback(async (input: NewDebtInput) => { await db.addDebt(input); await refresh(); }, [db, refresh]);
   const addDebtPayment = useCallback(async (debtId: string, amount: number, date: string) => { await db.addDebtPayment(debtId, amount, date); await refresh(); }, [db, refresh]);
   const createSupplierOrder = useCallback(async (input: NewOrderInput) => { await db.createSupplierOrder(input); await refresh(); }, [db, refresh]);
@@ -143,7 +149,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, addExpense, addCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, deleteExpenseCategory, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

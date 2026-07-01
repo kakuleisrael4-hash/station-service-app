@@ -4,7 +4,7 @@
 //  Réplique des triggers SQL (public.reports_recompute).
 // =====================================================================
 import type { Billetage, ComputedReport, Expense, FuelType, Pump, PumpReading, ReportDraft } from '@/types';
-import { BALANCE_TOLERANCE, BILLETS_FC, BUY_PRICE_BY_FUEL, PRICE_BY_FUEL, PUMPS, autoScoreFromManquant, pumpById } from '@/constants';
+import { BALANCE_TOLERANCE, BILLETS_FC, BUY_PRICE_BY_FUEL, PRICE_BY_FUEL, PUMPS, pumpById } from '@/constants';
 
 /** Contexte de calcul : config pompes + prix courants (défaut = constantes). */
 export interface CalcContext {
@@ -27,9 +27,9 @@ export function sumBilletageFC(b: Billetage): number {
   return BILLETS_FC.reduce((acc, coupure) => acc + coupure * num(b[String(coupure)]), 0);
 }
 
-/** Montant d'une dépense converti en FC selon sa devise. */
+/** Coût total d'une dépense en FC : part FC + part USD convertie au taux du jour. */
 export function expenseFC(e: Expense, taux: number): number {
-  return e.currency === 'USD' ? num(e.amount) * num(taux) : num(e.amount);
+  return num(e.amount) + num(e.amount_usd) * num(taux);
 }
 
 export function sumExpensesFC(expenses: Expense[], taux: number): number {
@@ -99,11 +99,11 @@ export function computeReport(d: ReportDraft, ctx: CalcContext = {}): ComputedRe
     total_encaisse,
     ecart,
     is_balanced,
-    auto_score: autoScoreFromManquant(manquant),
+    auto_score: null, // notation automatique supprimée : l'admin note librement (étoiles)
     marge_super,
     marge_gasoil,
     benefice,
-  };
+  } as ComputedReport;
 }
 
 export function validateDraft(d: ReportDraft, c: ComputedReport): string[] {
@@ -115,16 +115,12 @@ export function validateDraft(d: ReportDraft, c: ComputedReport): string[] {
       errors.push(`${pump?.label ?? p.pump_id} : l'index de fermeture ne peut pas être inférieur à l'ouverture (${p.index_open.toLocaleString('fr-FR')}).`);
     }
   });
-  if (d.expenses.some((e) => num(e.amount) > 0 && !e.category_id))
+  if (d.expenses.some((e) => (num(e.amount) > 0 || num(e.amount_usd) > 0) && !e.category_id))
     errors.push('Chaque dépense doit avoir une catégorie.');
-  const hasUsdExpense = d.expenses.some((e) => e.currency === 'USD' && num(e.amount) > 0);
+  const hasUsdExpense = d.expenses.some((e) => num(e.amount_usd) > 0);
   if ((num(d.total_usd) > 0 || hasUsdExpense) && num(d.taux_journalier) <= 0)
     errors.push('Renseignez le taux journalier pour convertir les USD.');
   // NB : un écart X ≠ Y ne bloque PLUS la validation. Il est confirmé par
   // l'admin (pop-up) puis imputé comme manquant officiel (voir NewReportForm).
   return errors;
-}
-
-export function starsFromScore(score10: number): number {
-  return Math.max(1, Math.min(5, Math.round(score10 / 2)));
 }

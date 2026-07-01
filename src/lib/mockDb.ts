@@ -16,7 +16,7 @@ import { currentPeriod, monthLabel, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, SalaryPaymentInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v11';
+const STORE_KEY = 'kkcoil.store.v12';
 const SESSION_KEY = 'kkcoil.session.v11';
 const PW_KEY = 'kkcoil.pw.v11';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));
@@ -306,15 +306,31 @@ export const mockDb: StationDB = {
     store.expenseCategories = [...store.expenseCategories, { id: uid(), name, color }];
     emit();
   },
+  async deleteExpenseCategory(id) {
+    store.expenseCategories = store.expenseCategories.filter((c) => c.id !== id);
+    // Dépenses liées : dé-catégorisées (montants inchangés -> caisse/capital intacts).
+    store.expenses = store.expenses.map((e) => (e.category_id === id ? { ...e, category_id: null } : e));
+    emit();
+  },
   async addExpense(input: NewExpenseInput) {
-    const amount_fc = input.currency === 'USD' ? input.amount * store.settings.taux_journalier : input.amount;
-    store.expenses = [{ id: uid(), category_id: input.category_id, description: input.description, amount: input.amount, currency: input.currency, amount_fc, date: input.date, report_id: null, created_at: new Date().toISOString() }, ...store.expenses];
+    const amount_fc = (input.amount || 0) + (input.amount_usd || 0) * store.settings.taux_journalier;
+    store.expenses = [{ id: uid(), category_id: input.category_id, description: input.description, amount: input.amount || 0, amount_usd: input.amount_usd || 0, currency: 'FC', amount_fc, date: input.date, report_id: null, created_at: new Date().toISOString() }, ...store.expenses];
     snapshotCapital();
+    emit();
+  },
+  async deleteExpense(id) {
+    store.expenses = store.expenses.filter((e) => e.id !== id);
+    snapshotCapital(); // réajuste caisse + capital
     emit();
   },
   async addCashEntry(input: NewCashInput) {
     store.cashEntries = [{ id: uid(), currency: input.currency, amount: input.amount, motif: input.motif, date: input.date, created_by: 'u-admin', created_at: new Date().toISOString() }, ...store.cashEntries];
     snapshotCapital();
+    emit();
+  },
+  async deleteCashEntry(id) {
+    store.cashEntries = store.cashEntries.filter((c) => c.id !== id);
+    snapshotCapital(); // rollback : retire l'apport de la caisse + recalcule le capital
     emit();
   },
   async addDebt(input: NewDebtInput) {

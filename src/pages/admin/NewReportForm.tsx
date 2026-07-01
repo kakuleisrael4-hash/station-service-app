@@ -7,11 +7,11 @@ import {
 import { Card, SectionTitle, StarRating, FloatingAlert } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { computeReport, validateDraft, starsFromScore } from '@/lib/calc';
+import { computeReport, validateDraft } from '@/lib/calc';
 import { lastClosingIndexByPump } from '@/lib/selectors';
 import { BILLETS_FC, BALANCE_TOLERANCE, PUMPS } from '@/constants';
 import { fc, usd, liters, todayISO } from '@/lib/format';
-import type { Currency, EcartDecision, Expense, ReportDraft } from '@/types';
+import type { EcartDecision, Expense, ReportDraft } from '@/types';
 
 const toNum = (v: string) => {
   const n = parseFloat(String(v).replace(',', '.'));
@@ -95,14 +95,13 @@ export default function NewReportForm() {
   const touched = c.total_encaisse > 0 || draft.manquant > 0 || c.total_a_remettre > 0;
   // L'écart ne bloque plus : seuls les autres contrôles (pompiste, catégories, taux…) bloquent.
   const canSave = errors.length === 0 && !!f.pompiste_id;
-  const suggestedStars = starsFromScore(c.auto_score);
   // Déficit = Y − X (positif = manque). Surplus = X − Y (= c.ecart, positif).
   const shortfall = c.total_a_remettre - c.total_encaisse;
   const isDeficit = shortfall > BALANCE_TOLERANCE;
   const isSurplus = c.ecart > BALANCE_TOLERANCE;
 
   function addExpense() {
-    set('expenses', [...f.expenses, { id: crypto.randomUUID?.() ?? String(Math.random()), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
+    set('expenses', [...f.expenses, { id: crypto.randomUUID?.() ?? String(Math.random()), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, amount_usd: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
   }
   const updateExpense = (id: string, patch: Partial<Expense>) => set('expenses', f.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const removeExpense = (id: string) => set('expenses', f.expenses.filter((e) => e.id !== id));
@@ -113,7 +112,7 @@ export default function NewReportForm() {
     try {
       // montant_ecart = écart constaté X − Y au moment de la décision (c.ecart,
       // avant tout report sur le manquant). decision = traitement choisi.
-      await createReport({ ...d, final_stars: stars ?? suggestedStars, montant_ecart: c.ecart, decision_imputation: decision }, user);
+      await createReport({ ...d, final_stars: stars, montant_ecart: c.ecart, decision_imputation: decision }, user);
       setDone(true);
       setTimeout(() => { setF(blank); setStars(null); setDone(false); }, 1800);
     } catch (e) {
@@ -215,11 +214,9 @@ export default function NewReportForm() {
                   {expenseCategories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
                 <input className="field flex-1 min-w-[7rem]" placeholder="Description" value={e.description} onChange={(ev) => updateExpense(e.id, { description: ev.target.value })} />
-                <select className="field w-20" value={e.currency} onChange={(ev) => updateExpense(e.id, { currency: ev.target.value as Currency })}>
-                  <option value="FC">FC</option><option value="USD">USD</option>
-                </select>
-                <input className="field w-28" type="number" placeholder={e.currency === 'USD' ? 'Montant $' : 'Montant FC'} value={e.amount || ''} onChange={(ev) => updateExpense(e.id, { amount: toNum(ev.target.value) })} />
-                {e.currency === 'USD' && <span className="text-xs font-semibold tabular-nums text-energy-300">≈ {fc(e.amount * toNum(f.taux_journalier))}</span>}
+                <input className="field w-24" type="number" placeholder="FC" title="Part en FC" value={e.amount || ''} onChange={(ev) => updateExpense(e.id, { amount: toNum(ev.target.value) })} />
+                <input className="field w-24" type="number" placeholder="USD" title="Part en USD" value={e.amount_usd || ''} onChange={(ev) => updateExpense(e.id, { amount_usd: toNum(ev.target.value) })} />
+                <span className="text-xs font-semibold tabular-nums text-energy-300 whitespace-nowrap">= {fc((e.amount || 0) + (e.amount_usd || 0) * toNum(f.taux_journalier))}</span>
                 <button onClick={() => removeExpense(e.id)} className="btn-ghost !px-2.5 text-rose-400"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
@@ -295,13 +292,9 @@ export default function NewReportForm() {
           </Card>
 
           <Card>
-            <SectionTitle icon={<StarIcon className="h-5 w-5" />} title="Notation" />
-            <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/10">
-              <span className="text-sm text-slate-400">Note automatique</span>
-              <span className={`text-xl font-black tabular-nums ${c.auto_score >= 9 ? 'text-energy-400' : c.auto_score >= 7 ? 'text-fuel-400' : 'text-rose-400'}`}>{c.auto_score}/10</span>
-            </div>
-            <div className="mt-3"><label className="label">Note finale de l'admin</label><StarRating value={stars ?? suggestedStars} onChange={setStars} /></div>
-            <div className="mt-3"><label className="label flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Suggestions</label><textarea className="field h-20 resize-none" placeholder="Conseils au pompiste…" value={f.admin_comment} onChange={(e) => set('admin_comment', e.target.value)} /></div>
+            <SectionTitle icon={<StarIcon className="h-5 w-5" />} title="Évaluation du pompiste" subtitle="Note 100 % à la discrétion de l'admin" />
+            <div><label className="label">Note (1 à 5 étoiles)</label><StarRating value={stars ?? 0} onChange={setStars} /></div>
+            <div className="mt-3"><label className="label flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Suggestions / remarques</label><textarea className="field h-20 resize-none" placeholder="Conseils et remarques au pompiste…" value={f.admin_comment} onChange={(e) => set('admin_comment', e.target.value)} /></div>
           </Card>
 
           {errors.length > 0 && (
