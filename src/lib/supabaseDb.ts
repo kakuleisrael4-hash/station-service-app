@@ -236,7 +236,9 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (error) throw new Error(error.message);
     },
     async deleteExpense(id) {
-      const { error } = await sb.from('expenses').delete().eq('id', id);
+      // Garde-fou : seules les dépenses HORS-RAPPORT sont supprimables ici
+      // (celles d'un rapport font partie de son équilibre X=Y -> rollback via delete_report).
+      const { error } = await sb.from('expenses').delete().eq('id', id).is('report_id', null);
       if (error) throw new Error(error.message);
     },
     async addCashEntry(input) {

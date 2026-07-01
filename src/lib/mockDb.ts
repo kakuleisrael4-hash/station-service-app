@@ -319,7 +319,12 @@ export const mockDb: StationDB = {
     emit();
   },
   async deleteExpense(id) {
-    store.expenses = store.expenses.filter((e) => e.id !== id);
+    const e = store.expenses.find((x) => x.id === id);
+    if (!e) return;
+    // Garde-fou : une dépense de rapport fait partie de l'équilibre X=Y du
+    // rapport — elle ne s'annule qu'en supprimant le rapport (rollback complet).
+    if (e.report_id) throw new Error('Dépense liée à un rapport : supprimez le rapport (Historique) pour l\'annuler proprement.');
+    store.expenses = store.expenses.filter((x) => x.id !== id);
     snapshotCapital(); // réajuste caisse + capital
     emit();
   },

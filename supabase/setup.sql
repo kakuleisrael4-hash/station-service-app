@@ -368,7 +368,9 @@ begin
   new.total_usd_fc := new.total_usd * new.taux_journalier;
   new.total_encaisse := new.total_billetage_fc + new.total_usd_fc;
   new.ecart := new.total_encaisse - new.total_a_remettre;
-  new.auto_score := case when new.manquant<=0 then 10 when new.manquant<5000 then 9 when new.manquant<10000 then 7 else 0 end;
+  -- Notation automatique SUPPRIMÉE : l'évaluation est 100 % à la discrétion
+  -- de l'admin (final_stars 1-5). auto_score n'est plus calculé.
+  new.auto_score := null;
   -- Bénéfice = litrage * (prix de vente - prix d'achat), par carburant.
   select essence_price, gasoil_price, essence_buy_price, gasoil_buy_price
     into v_es, v_gs, v_eb, v_gb from public.settings limit 1;

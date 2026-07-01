@@ -124,7 +124,13 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
                     <td className="py-2 pr-2 text-right font-semibold tabular-nums text-rose-400">− {fc(e.amount_fc)}</td>
                     {onDelete && (
                       <td className="py-2 text-right">
-                        <button onClick={() => onDelete(e.id)} className="text-slate-500 hover:text-rose-400" title="Supprimer la dépense"><Trash2 className="h-4 w-4" /></button>
+                        {e.report_id ? (
+                          // Dépense intégrée à l'équilibre X=Y d'un rapport : se corrige
+                          // uniquement en supprimant le rapport (rollback complet).
+                          <span className="cursor-not-allowed text-slate-700" title="Dépense liée à un rapport — supprimez le rapport pour l'annuler (Historique)."><Trash2 className="h-4 w-4" /></span>
+                        ) : (
+                          <button onClick={() => onDelete(e.id)} className="text-slate-500 hover:text-rose-400" title="Supprimer la dépense"><Trash2 className="h-4 w-4" /></button>
+                        )}
                       </td>
                     )}
                   </tr>
