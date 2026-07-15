@@ -198,6 +198,31 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         total_encaisse: t.enc, total_benefice: t.ben,
       });
     },
+    async deleteOrder(orderId) {
+      // Fonction SQL transactionnelle : rollback stock si livrée + snapshot capital.
+      const { error } = await sb.rpc('delete_order', { p_order_id: orderId });
+      if (error) throw new Error(error.message);
+    },
+
+    // ---- Lectures FRAÎCHES pour les exports PDF (jointures complètes au clic) ----
+    async fetchReport(reportId) {
+      const [{ data: row }, { data: readings }, { data: exps }] = await Promise.all([
+        sb.from('reports').select('*').eq('id', reportId).maybeSingle(),
+        sb.from('report_pump_readings').select('*').eq('report_id', reportId),
+        sb.from('expenses').select('*').eq('report_id', reportId),
+      ]);
+      return row ? mapReport(row, readings ?? [], exps ?? []) : null;
+    },
+    async fetchReportsByIds(reportIds) {
+      if (!reportIds.length) return [];
+      const [{ data: rows }, { data: readings }, { data: exps }] = await Promise.all([
+        sb.from('reports').select('*').in('id', reportIds),
+        sb.from('report_pump_readings').select('*').in('report_id', reportIds),
+        sb.from('expenses').select('*').in('report_id', reportIds),
+      ]);
+      return (rows ?? []).map((r: any) => mapReport(r, readings ?? [], exps ?? []));
+    },
+
     async deleteReport(reportId) {
       // Fonction SQL transactionnelle : rollback stock + manquant RH + clôtures + capital.
       const { error } = await sb.rpc('delete_report', { p_report_id: reportId });

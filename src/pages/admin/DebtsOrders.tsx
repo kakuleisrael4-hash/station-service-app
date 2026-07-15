@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HandCoins, Truck, Plus, CheckCircle2, Clock, Loader2, Wallet, FileDown } from 'lucide-react';
+import { HandCoins, Truck, Plus, CheckCircle2, Clock, Loader2, Wallet, FileDown, Trash2 } from 'lucide-react';
 import { exportDebtsPDF } from '@/lib/pdf';
 import { Card, SectionTitle, StatCard, EmptyState, Modal } from '@/components/ui';
 import { useData } from '@/context/DataContext';
@@ -14,7 +14,7 @@ const money = (amount: number, currency: Currency) => (currency === 'USD' ? usd(
 type Sub = 'dettes' | 'commandes';
 
 export default function DebtsOrders() {
-  const { debts, debtPayments, supplierOrders, cisterns, settings, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus } = useData();
+  const { debts, debtPayments, supplierOrders, cisterns, settings, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, deleteOrder } = useData();
   const [sub, setSub] = useState<Sub>('dettes');
 
   return (
@@ -27,7 +27,7 @@ export default function DebtsOrders() {
       {sub === 'dettes' ? (
         <DebtsTab debts={debts} debtPayments={debtPayments} recoverable={recoverableDebtsFC(debts, debtPayments, settings.taux_journalier)} addDebt={addDebt} addDebtPayment={addDebtPayment} />
       ) : (
-        <OrdersTab orders={supplierOrders} cisterns={cisterns} createOrder={createSupplierOrder} setStatus={setOrderStatus} />
+        <OrdersTab orders={supplierOrders} cisterns={cisterns} createOrder={createSupplierOrder} setStatus={setOrderStatus} deleteOrder={deleteOrder} />
       )}
     </div>
   );
@@ -122,7 +122,7 @@ function DebtsTab({ debts, debtPayments, recoverable, addDebt, addDebtPayment }:
   );
 }
 
-function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
+function OrdersTab({ orders, cisterns, createOrder, setStatus, deleteOrder }: any) {
   const firstOf = (fuel: string) => cisterns.find((c: any) => c.fuel === fuel)?.id ?? '';
   const [form, setForm] = useState({ supplier_name: '', fuel: 'super', cistern_id: firstOf('super'), volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
   const setFuel = (fuel: string) => setForm((f) => ({ ...f, fuel, cistern_id: firstOf(fuel) }));
@@ -137,6 +137,15 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Livraison impossible.');
     }
+  }
+
+  async function remove(o: any, citName: string) {
+    const msg = o.status === 'livre'
+      ? `⚠ Cette commande a été LIVRÉE : sa suppression va soustraire ${o.volume_l.toLocaleString('fr-FR')} L du stock de ${citName} et retirer sa valeur du Capital. Continuer ?`
+      : `Supprimer la commande « ${o.supplier_name} » (en cours) ? L'acompte sera retiré du calcul de la caisse.`;
+    if (!window.confirm(msg)) return;
+    setErr(null);
+    try { await deleteOrder(o.id); } catch (e) { setErr(e instanceof Error ? e.message : 'Suppression impossible.'); }
   }
 
   async function submit() {
@@ -215,7 +224,12 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus }: any) {
                       <td className="py-2 text-right tabular-nums">{fc(o.purchase_price)}</td>
                       <td className="py-2 text-right tabular-nums">{fc(o.deposit)}</td>
                       <td className="py-2"><span className={`chip ${o.status === 'livre' ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{o.status === 'livre' ? <><CheckCircle2 className="h-3 w-3" /> Livré</> : <><Clock className="h-3 w-3" /> En cours</>}</span></td>
-                      <td className="py-2 text-right">{o.status === 'en_cours' && <button onClick={() => deliver(o.id)} className="btn-ghost !py-1.5 !px-3 text-energy-300"><CheckCircle2 className="h-4 w-4" /> Marquer livré</button>}</td>
+                      <td className="py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {o.status === 'en_cours' && <button onClick={() => deliver(o.id)} className="btn-ghost !py-1.5 !px-3 text-energy-300"><CheckCircle2 className="h-4 w-4" /> Marquer livré</button>}
+                          <button onClick={() => remove(o, cit?.name ?? o.cistern_id)} className="text-slate-400 hover:text-rose-400 p-1.5" title={o.status === 'livre' ? 'Supprimer (rollback du stock de la citerne)' : 'Supprimer la commande'}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}

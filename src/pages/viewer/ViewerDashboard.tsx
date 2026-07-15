@@ -10,6 +10,7 @@ import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ExpensesTable from '@/components/ExpensesTable';
 import ReportsHistory from '@/components/ReportsHistory';
+import SideNav from '@/components/SideNav';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
@@ -19,12 +20,25 @@ import { fc, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
 
 const PIE_COLORS = ['#10b981', '#f59e0b', '#38bdf8', '#a78bfa', '#fb7185', '#34d399'];
 type Tab = 'global' | 'rapports' | 'carburant' | 'capital' | 'depenses';
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'global', label: 'Vue globale', icon: <Megaphone className="h-4 w-4" /> },
-  { id: 'rapports', label: 'Rapports', icon: <History className="h-4 w-4" /> },
-  { id: 'carburant', label: 'Carburant & Stocks', icon: <Droplets className="h-4 w-4" /> },
-  { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
-  { id: 'depenses', label: 'Audit dépenses', icon: <Receipt className="h-4 w-4" /> },
+const NAV_GROUPS = [
+  {
+    label: '📊 Tableau de bord',
+    items: [{ id: 'global', label: 'Vue globale', icon: <Megaphone className="h-4 w-4" /> }],
+  },
+  {
+    label: '⛽ Opérations',
+    items: [
+      { id: 'rapports', label: 'Rapports', icon: <History className="h-4 w-4" /> },
+      { id: 'carburant', label: 'Citernes & Pompes', icon: <Droplets className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: '💸 Finances',
+    items: [
+      { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
+      { id: 'depenses', label: 'Audit dépenses', icon: <Receipt className="h-4 w-4" /> },
+    ],
+  },
 ];
 
 export default function ViewerDashboard() {
@@ -44,13 +58,9 @@ export default function ViewerDashboard() {
 
   return (
     <DashboardShell accent="Vision globale">
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`btn whitespace-nowrap ${tab === t.id ? 'bg-energy-500 text-night-950 shadow-glow' : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="lg:flex lg:items-start lg:gap-6">
+      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)} />
+      <div className="min-w-0 flex-1">
 
       {tab === 'rapports' && <ReportsHistory reports={reports} pompistes={pompistes} />}
       {tab === 'carburant' && <FuelStockManagement />}
@@ -132,6 +142,8 @@ export default function ViewerDashboard() {
           </Card>
         </div>
       )}
+      </div>
+      </div>
     </DashboardShell>
   );
 }

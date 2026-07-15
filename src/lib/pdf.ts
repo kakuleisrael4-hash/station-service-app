@@ -2,7 +2,7 @@
 //  Export PDF (jsPDF + autotable, chargés à la demande pour ne pas
 //  alourdir le bundle principal). Rapports, fiches de paie, registre dettes.
 // =====================================================================
-import type { Debt, DebtPayment, PompisteProfile, Report } from '@/types';
+import type { DailyClosing, Debt, DebtPayment, PompisteProfile, Report } from '@/types';
 import { STATION, FUEL_LABEL, pumpById } from '@/constants';
 import { fc, usd, liters, fullDate } from './format';
 import { debtPaid, debtRemaining, payrollOf } from './selectors';
@@ -128,6 +128,52 @@ export async function exportReportPDF(report: Report, pompisteName: string) {
   }
   footer(doc);
   doc.save(`rapport_${pompisteName.replace(/\s+/g, '_')}_${report.report_date}.pdf`);
+}
+
+/** Clôture journalière : synthèse consolidée + détail des rapports fusionnés.
+ *  `reports` doit être hydraté FRAIS depuis la base (db.fetchReportsByIds). */
+export async function exportClosingPDF(closing: DailyClosing, reports: Report[], nameOf: (id: string | null) => string) {
+  const { doc, autoTable } = await newDoc();
+  header(doc, 'CLÔTURE JOURNALIÈRE', fullDate(closing.closed_at));
+
+  autoTable(doc, {
+    startY: 34,
+    body: [
+      ['Rapports fusionnés', String(closing.report_count)],
+      ['Volume Super', liters(closing.total_super_l)],
+      ['Volume Gasoil', liters(closing.total_gasoil_l)],
+      ['Volume total', liters(closing.total_volume_l)],
+      ['TOTAL ENCAISSÉ', fc(closing.total_encaisse)],
+      ['Bénéfice du jour', fc(closing.total_benefice)],
+    ],
+    theme: 'plain',
+    styles: { fontSize: 10 },
+    columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } },
+    didParseCell: (d: any) => {
+      if (d.row.raw[0] === 'TOTAL ENCAISSÉ') { d.cell.styles.textColor = GREEN; d.cell.styles.fontStyle = 'bold'; }
+    },
+  });
+
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 6,
+    head: [['Date', 'Pompiste', 'Super (L)', 'Gasoil (L)', 'À remettre', 'Encaissé', 'Écart', 'Décision']],
+    body: reports.map((r) => [
+      fullDate(r.report_date),
+      nameOf(r.pompiste_id),
+      liters(r.essence_litrage),
+      liters(r.gasoil_litrage),
+      fc(r.total_a_remettre),
+      fc(r.total_encaisse),
+      Math.abs(r.montant_ecart ?? 0) < 1 ? '—' : fc(r.montant_ecart),
+      r.decision_imputation === 'tolere' ? 'Toléré' : r.decision_imputation === 'debit_salaire' ? 'Salaire' : '—',
+    ]),
+    headStyles: { fillColor: GREEN, textColor: DARK },
+    styles: { fontSize: 8 },
+    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+  });
+
+  footer(doc);
+  doc.save(`cloture_${closing.closed_at.slice(0, 10)}.pdf`);
 }
 
 /** Fiche de paie d'un pompiste (bi-devise FC + USD). */

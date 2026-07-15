@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Megaphone, FilePlus2, Wallet, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck, History, Fuel } from 'lucide-react';
 import { exportReportPDF } from '@/lib/pdf';
+import { getDb } from '@/lib/db';
 import DashboardShell from '@/components/DashboardShell';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ReportsHistory from '@/components/ReportsHistory';
+import SideNav from '@/components/SideNav';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
@@ -22,19 +24,40 @@ import { stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, currentPeriod } from '@/lib/format';
 
 type Tab = 'communique' | 'rapport' | 'historique' | 'cloture' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'communique', label: 'Communiqué', icon: <Megaphone className="h-4 w-4" /> },
-  { id: 'rapport', label: 'Nouveau Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
-  { id: 'historique', label: 'Historique', icon: <History className="h-4 w-4" /> },
-  { id: 'cloture', label: 'Clôture journalière', icon: <CalendarCheck className="h-4 w-4" /> },
-  { id: 'carburant', label: 'Carburant & Stocks', icon: <Droplets className="h-4 w-4" /> },
-  { id: 'caisse', label: 'Caisse & Dépenses', icon: <Receipt className="h-4 w-4" /> },
-  { id: 'dettes', label: 'Dettes & Commandes', icon: <HandCoins className="h-4 w-4" /> },
-  { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
-  { id: 'communiques', label: 'Communiqués', icon: <Megaphone className="h-4 w-4" /> },
-  { id: 'site', label: 'Site vitrine', icon: <LayoutTemplate className="h-4 w-4" /> },
-  { id: 'salaires', label: 'Salaires', icon: <Wallet className="h-4 w-4" /> },
-  { id: 'parametres', label: 'Paramètres', icon: <SettingsIcon className="h-4 w-4" /> },
+const NAV_GROUPS = [
+  {
+    label: '📊 Tableau de bord',
+    items: [{ id: 'communique', label: "Vue d'ensemble", icon: <Megaphone className="h-4 w-4" /> }],
+  },
+  {
+    label: '⛽ Opérations',
+    items: [
+      { id: 'rapport', label: 'Nouveau Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
+      { id: 'historique', label: 'Historique des rapports', icon: <History className="h-4 w-4" /> },
+      { id: 'cloture', label: 'Clôture journalière', icon: <CalendarCheck className="h-4 w-4" /> },
+      { id: 'carburant', label: 'Citernes & Pompes', icon: <Droplets className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: '💸 Finances',
+    items: [
+      { id: 'caisse', label: 'Caisse & Dépenses', icon: <Receipt className="h-4 w-4" /> },
+      { id: 'dettes', label: 'Dettes & Commandes', icon: <HandCoins className="h-4 w-4" /> },
+      { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
+    ],
+  },
+  {
+    label: '👥 Ressources humaines',
+    items: [{ id: 'salaires', label: 'Salaires & Paie', icon: <Wallet className="h-4 w-4" /> }],
+  },
+  {
+    label: '⚙️ Configuration',
+    items: [
+      { id: 'communiques', label: 'Communiqués', icon: <Megaphone className="h-4 w-4" /> },
+      { id: 'site', label: 'Site vitrine (CMS)', icon: <LayoutTemplate className="h-4 w-4" /> },
+      { id: 'parametres', label: 'Paramètres', icon: <SettingsIcon className="h-4 w-4" /> },
+    ],
+  },
 ];
 
 export default function AdminDashboard() {
@@ -50,13 +73,9 @@ export default function AdminDashboard() {
 
   return (
     <DashboardShell>
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`btn whitespace-nowrap ${tab === t.id ? 'bg-energy-500 text-night-950 shadow-glow' : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="lg:flex lg:items-start lg:gap-6">
+      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)} />
+      <div className="min-w-0 flex-1">
 
       {tab === 'communique' && (
         <div className="space-y-5">
@@ -103,7 +122,7 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className={`py-2 text-right tabular-nums ${r.manquant > 0 ? 'text-rose-400' : 'text-slate-500'}`}>{r.manquant > 0 ? fc(r.manquant) : '—'}</td>
-                          <td className="py-2 text-right"><button onClick={() => exportReportPDF(r, p?.display_name ?? 'Pompiste')} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF"><FileDown className="ml-auto h-4 w-4" /></button></td>
+                          <td className="py-2 text-right"><button onClick={async () => { const fresh = (await getDb().fetchReport(r.id)) ?? r; exportReportPDF(fresh, p?.display_name ?? 'Pompiste'); }} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF (données fraîches)"><FileDown className="ml-auto h-4 w-4" /></button></td>
                         </tr>
                       );
                     })}
@@ -126,6 +145,8 @@ export default function AdminDashboard() {
       {tab === 'site' && <SiteEditor />}
       {tab === 'salaires' && <SalaryManagement />}
       {tab === 'parametres' && <SettingsPanel />}
+      </div>
+      </div>
     </DashboardShell>
   );
 }

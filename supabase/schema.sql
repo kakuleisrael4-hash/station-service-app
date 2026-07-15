@@ -521,6 +521,23 @@ create trigger trg_cap_cash after insert or update or delete on public.cash_entr
 drop trigger if exists trg_cap_salary on public.salary_payments;
 create trigger trg_cap_salary after insert or update or delete on public.salary_payments for each statement execute function public.trg_snapshot_capital();
 
+-- RPC : suppression d'une commande fournisseur (rollback stock si livrée)
+create or replace function public.delete_order(p_order_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare o record;
+begin
+  if not public.is_admin() then raise exception 'Action réservée à l''administrateur.'; end if;
+  select * into o from public.supplier_orders where id = p_order_id;
+  if not found then return; end if;
+  if o.status = 'livre' then
+    update public.cisterns set current_l = greatest(0, current_l - o.volume_l), updated_at = now()
+      where id = o.cistern_id;
+    delete from public.fuel_movements where ref_id = p_order_id and source = 'livraison';
+  end if;
+  delete from public.supplier_orders where id = p_order_id;
+  perform public.snapshot_capital();
+end $$;
+
 -- RPC : paiement officiel d'un salaire (réservé Admin)
 create or replace function public.pay_salary(
   p_pompiste_id uuid, p_mois text, p_date date, p_temps numeric, p_unite text, p_fc numeric, p_usd numeric

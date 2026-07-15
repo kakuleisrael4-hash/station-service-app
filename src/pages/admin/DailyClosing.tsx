@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp, Fuel, Trash2, AlertTriangle, Eye, X } from 'lucide-react';
+import { CalendarCheck, Loader2, History, Droplets, Wallet, TrendingUp, Fuel, Trash2, AlertTriangle, Eye, X, FileDown } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import { useData } from '@/context/DataContext';
+import { exportClosingPDF } from '@/lib/pdf';
+import { getDb } from '@/lib/db';
 import { fc, liters, shortDate, fullDate } from '@/lib/format';
 import type { DailyClosing as DailyClosingType } from '@/types';
 
@@ -22,6 +24,13 @@ export default function DailyClosing() {
     if (!toDelete) return;
     setDelBusy(true);
     try { await deleteClosing(toDelete.id); setToDelete(null); setDetail(null); } finally { setDelBusy(false); }
+  }
+
+  // PDF de clôture sur données FRAÎCHES : les rapports fusionnés sont re-fetchés
+  // depuis la base au moment du clic (jointures complètes), pas depuis l'état local.
+  async function exportClosing(d: DailyClosingType) {
+    const fresh = await getDb().fetchReportsByIds(d.report_ids);
+    await exportClosingPDF(d, fresh, nameOf);
   }
 
   const selected = open.filter((r) => sel.has(r.id));
@@ -135,6 +144,7 @@ export default function DailyClosing() {
                     <td className="py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={(e) => { e.stopPropagation(); setDetail(d); }} className="text-slate-400 hover:text-energy-400" title="Voir le détail"><Eye className="h-4 w-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); void exportClosing(d); }} className="text-slate-400 hover:text-energy-400" title="Télécharger la clôture en PDF (données fraîches)"><FileDown className="h-4 w-4" /></button>
                         <button onClick={(e) => { e.stopPropagation(); setToDelete(d); }} className="text-slate-400 hover:text-rose-400" title="Supprimer la clôture"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
@@ -186,7 +196,8 @@ export default function DailyClosing() {
                 })}
               </tbody>
             </table>
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => void exportClosing(detail)} className="btn bg-energy-500/15 text-energy-300 hover:bg-energy-500/25"><FileDown className="h-4 w-4" /> Exporter en PDF</button>
               <button onClick={() => { setToDelete(detail); }} className="btn bg-rose-500/15 text-rose-300 hover:bg-rose-500/25"><Trash2 className="h-4 w-4" /> Supprimer cette clôture</button>
             </div>
           </motion.div>

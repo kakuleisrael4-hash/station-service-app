@@ -147,6 +147,13 @@ export interface StationDB {
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;
   setOrderStatus(orderId: string, status: OrderStatus): Promise<void>;
+  /** Supprime une commande fournisseur. Si elle était LIVRÉE : rollback du stock
+   *  de la citerne (volume soustrait) + recalcul du capital. */
+  deleteOrder(orderId: string): Promise<void>;
+
+  // Lectures FRAÎCHES (exports PDF) : re-fetch direct depuis la base au moment du clic.
+  fetchReport(reportId: string): Promise<Report | null>;
+  fetchReportsByIds(reportIds: string[]): Promise<Report[]>;
 
   // Stock physique / audit
   addStockLog(cisternId: string, physicalL: number, note: string, adjust: boolean): Promise<void>;

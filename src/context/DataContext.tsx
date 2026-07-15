@@ -22,6 +22,7 @@ interface DataCtx extends StationData {
   addDebtPayment: (debtId: string, amount: number, date: string) => Promise<void>;
   createSupplierOrder: (input: NewOrderInput) => Promise<void>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
   addStockLog: (cisternId: string, physicalL: number, note: string, adjust: boolean) => Promise<void>;
   addAnnouncement: (title: string, body: string, author: AppUser, attachments?: Attachment[]) => Promise<void>;
   deleteAnnouncement: (id: string) => Promise<void>;
@@ -134,6 +135,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addDebtPayment = useCallback(async (debtId: string, amount: number, date: string) => { await db.addDebtPayment(debtId, amount, date); await refresh(); }, [db, refresh]);
   const createSupplierOrder = useCallback(async (input: NewOrderInput) => { await db.createSupplierOrder(input); await refresh(); }, [db, refresh]);
   const setOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => { await db.setOrderStatus(orderId, status); await refresh(); }, [db, refresh]);
+  const deleteOrder = useCallback(async (orderId: string) => { await db.deleteOrder(orderId); await refresh(); }, [db, refresh]);
   const addStockLog = useCallback(async (cisternId: string, physicalL: number, note: string, adjust: boolean) => { await db.addStockLog(cisternId, physicalL, note, adjust); await refresh(); }, [db, refresh]);
   const addAnnouncement = useCallback(async (title: string, body: string, author: AppUser, attachments?: Attachment[]) => { await db.addAnnouncement(title, body, author, attachments); await refresh(); }, [db, refresh]);
   const deleteAnnouncement = useCallback(async (id: string) => { await db.deleteAnnouncement(id); await refresh(); }, [db, refresh]);
@@ -149,7 +151,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, deleteExpenseCategory, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, deleteExpenseCategory, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, deleteOrder, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

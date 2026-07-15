@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Search, History, Droplets, Fuel, Trash2, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { Card, SectionTitle, EmptyState } from '@/components/ui';
 import { exportReportPDF } from '@/lib/pdf';
+import { getDb } from '@/lib/db';
 import { fc, liters, shortDate } from '@/lib/format';
 import type { PompisteProfile, Report } from '@/types';
 
@@ -48,6 +49,13 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
     if (!pending || !onDelete) return;
     setBusy(true);
     try { await onDelete(pending.id); setPending(null); } finally { setBusy(false); }
+  }
+
+  // Export PDF sur données FRAÎCHES : re-fetch du rapport (jointures complètes)
+  // au moment du clic — jamais depuis un état local potentiellement obsolète.
+  async function exportFresh(r: Report) {
+    const fresh = (await getDb().fetchReport(r.id)) ?? r;
+    await exportReportPDF(fresh, nameOf(fresh.pompiste_id));
   }
 
   return (
@@ -107,7 +115,7 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
                   <td className="py-2 pr-2"><span className={`chip ${r.closed ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{r.closed ? 'Clôturé' : 'En cours'}</span></td>
                   <td className="py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => exportReportPDF(r, nameOf(r.pompiste_id))} className="text-slate-400 hover:text-energy-400" title="Télécharger en PDF"><FileDown className="h-4 w-4" /></button>
+                      <button onClick={() => exportFresh(r)} className="text-slate-400 hover:text-energy-400" title="Télécharger en PDF (données fraîches)"><FileDown className="h-4 w-4" /></button>
                       {onDelete && <button onClick={() => setPending(r)} className="text-slate-400 hover:text-rose-400" title="Supprimer le rapport"><Trash2 className="h-4 w-4" /></button>}
                     </div>
                   </td>

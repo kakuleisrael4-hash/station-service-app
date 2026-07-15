@@ -383,6 +383,33 @@ export const mockDb: StationDB = {
     emit();
   },
 
+  async deleteOrder(orderId) {
+    const o = store.supplierOrders.find((x) => x.id === orderId);
+    if (!o) return;
+    // Rollback stock : une commande LIVRÉE avait injecté son volume dans la
+    // citerne -> on le soustrait (physique + théorique) et on retire le mouvement.
+    if (o.status === 'livre') {
+      const cit = store.cisterns.find((c) => c.id === o.cistern_id);
+      if (cit) {
+        cit.current_l = Math.max(0, cit.current_l - o.volume_l);
+        cit.updated_at = new Date().toISOString();
+      }
+      store.fuelMovements = store.fuelMovements.filter((m) => !(m.ref_id === orderId && m.source === 'livraison'));
+    }
+    store.supplierOrders = store.supplierOrders.filter((x) => x.id !== orderId);
+    snapshotCapital(); // retire la valeur comptable (acompte/prix) du capital
+    emit();
+  },
+
+  async fetchReport(reportId) {
+    const r = store.reports.find((x) => x.id === reportId);
+    return r ? clone(r) : null;
+  },
+  async fetchReportsByIds(reportIds) {
+    const ids = new Set(reportIds);
+    return clone(store.reports.filter((r) => ids.has(r.id)));
+  },
+
   async addStockLog(cisternId, physicalL, note, adjust) {
     const cit = store.cisterns.find((c) => c.id === cisternId);
     if (!cit) return;
