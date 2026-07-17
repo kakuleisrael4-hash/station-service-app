@@ -12,7 +12,9 @@ export function usd(value: number | null | undefined): string {
 
 export function liters(value: number | null | undefined): string {
   const n = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  return `${n.toLocaleString('fr-FR')} L`;
+  // Max 2 décimales : jamais de flottants bruts (0.30000000000000004 L) ni
+  // de notation scientifique dans l'UI ou les PDF.
+  return `${n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} L`;
 }
 
 export function shortDate(iso: string): string {
