@@ -17,7 +17,7 @@ export default function CaisseExpenses() {
   const byCat = expensesByCategory(expenses, expenseCategories);
 
   const [exp, setExp] = useState<{ category_id: string; description: string; amount_fc: string; amount_usd: string; date: string }>({ category_id: '', description: '', amount_fc: '', amount_usd: '', date: todayISO() });
-  const [cat, setCat] = useState({ name: '', color: '#10b981' });
+  const [cat, setCat] = useState({ name: '', color: '#f97316' });
   const [busy, setBusy] = useState(false);
   const expTotalFc = (parseFloat(exp.amount_fc) || 0) + (parseFloat(exp.amount_usd) || 0) * taux;
 
@@ -61,7 +61,7 @@ export default function CaisseExpenses() {
   async function submitCategory() {
     if (!cat.name.trim()) return;
     await addExpenseCategory(cat.name.trim(), cat.color);
-    setCat({ name: '', color: '#10b981' });
+    setCat({ name: '', color: '#f97316' });
   }
 
   return (

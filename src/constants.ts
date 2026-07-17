@@ -85,7 +85,7 @@ export const CRITICAL_STOCK_PCT = 15;
 
 // --------------------------- DÉPENSES --------------------------------
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
-  { id: 'cat-rh', name: 'RH / Primes', color: '#10b981' },
+  { id: 'cat-rh', name: 'RH / Primes', color: '#f97316' },
   { id: 'cat-maint', name: 'Maintenance Pompes', color: '#f59e0b' },
   { id: 'cat-taxes', name: 'Taxes & Impôts', color: '#fb7185' },
   { id: 'cat-elec', name: 'Factures Électricité', color: '#38bdf8' },

@@ -73,7 +73,7 @@ export default function SettingsPanel() {
   }
 
   // --- Catégories ---
-  const [cat, setCat] = useState({ name: '', color: '#10b981' });
+  const [cat, setCat] = useState({ name: '', color: '#f97316' });
 
   return (
     <div className="space-y-5">
@@ -182,7 +182,7 @@ export default function SettingsPanel() {
         <div className="flex gap-2">
           <input className="field flex-1" placeholder="Nouvelle catégorie" value={cat.name} onChange={(e) => setCat({ ...cat, name: e.target.value })} />
           <input type="color" className="h-10 w-12 rounded-lg bg-night-900 ring-1 ring-white/10" value={cat.color} onChange={(e) => setCat({ ...cat, color: e.target.value })} />
-          <button onClick={() => { if (cat.name.trim()) { addExpenseCategory(cat.name.trim(), cat.color); setCat({ name: '', color: '#10b981' }); } }} className="btn-ghost !px-3"><Plus className="h-4 w-4" /></button>
+          <button onClick={() => { if (cat.name.trim()) { addExpenseCategory(cat.name.trim(), cat.color); setCat({ name: '', color: '#f97316' }); } }} className="btn-ghost !px-3"><Plus className="h-4 w-4" /></button>
         </div>
       </Card>
 

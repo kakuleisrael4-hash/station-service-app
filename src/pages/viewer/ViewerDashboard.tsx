@@ -11,14 +11,14 @@ import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ExpensesTable from '@/components/ExpensesTable';
 import ReportsHistory from '@/components/ReportsHistory';
 import SideNav from '@/components/SideNav';
-import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
+import { Card, SectionTitle, StatCard, Gauge, EmptyState, AnimatedNumber } from '@/components/ui';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
 import { useData } from '@/context/DataContext';
 import { globalDaily, volumeShare, stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, fullDate, currentPeriod } from '@/lib/format';
 
-const PIE_COLORS = ['#10b981', '#f59e0b', '#38bdf8', '#a78bfa', '#fb7185', '#34d399'];
+const PIE_COLORS = ['#f97316', '#f59e0b', '#38bdf8', '#a78bfa', '#fb7185', '#fb923c'];
 type Tab = 'global' | 'rapports' | 'carburant' | 'capital' | 'depenses';
 const NAV_GROUPS = [
   {
@@ -59,8 +59,9 @@ export default function ViewerDashboard() {
   return (
     <DashboardShell accent="Vision globale">
       <div className="lg:flex lg:items-start lg:gap-6">
-      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)} />
-      <div className="min-w-0 flex-1">
+      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)}
+        bottomBar={{ itemIds: ['global', 'rapports', 'depenses'], centerId: 'capital' }} />
+      <div className="min-w-0 flex-1 pb-24 lg:pb-0">
 
       {tab === 'rapports' && <ReportsHistory reports={reports} pompistes={pompistes} />}
       {tab === 'carburant' && <FuelStockManagement />}
@@ -78,10 +79,10 @@ export default function ViewerDashboard() {
         <div className="space-y-5">
           <ChampionsPodium />
           <AnnouncementsFeed />
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="stagger grid gap-4 sm:grid-cols-4">
             <StatCard label="Volume Super (mois)" value={liters(volSuper)} icon={<Droplets className="h-4 w-4 text-energy-400" />} accent="text-energy-300" />
             <StatCard label="Volume Gasoil (mois)" value={liters(volGasoil)} icon={<Fuel className="h-4 w-4 text-fuel-400" />} accent="text-fuel-300" />
-            <StatCard label="Caisse cumulée" value={fc(caMonth)} accent="text-energy-400" />
+            <StatCard label="Caisse cumulée" value={<AnimatedNumber value={caMonth} format={fc} />} accent="text-energy-400" />
             <StatCard label="Manquants (mois)" value={fc(rh.totalManquants)} accent="text-rose-400" />
           </div>
 
@@ -92,13 +93,13 @@ export default function ViewerDashboard() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={cumulative} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-                      <defs><linearGradient id="cumul" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.5} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient></defs>
+                      <defs><linearGradient id="cumul" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.5} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient></defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                       <XAxis dataKey="date" tickFormatter={shortDate} stroke="#94a3b8" fontSize={11} />
                       <YAxis stroke="#94a3b8" fontSize={11} />
                       <Tooltip contentStyle={{ background: '#0b101e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#fff' }} formatter={(v: number) => liters(v)} labelFormatter={(l) => fullDate(String(l))} />
                       <Legend />
-                      <Area type="monotone" dataKey="cumul" name="Cumul mensuel" stroke="#10b981" strokeWidth={2.5} fill="url(#cumul)" />
+                      <Area type="monotone" dataKey="cumul" name="Cumul mensuel" stroke="#f97316" strokeWidth={2.5} fill="url(#cumul)" />
                       <Area type="monotone" dataKey="jour" name="Volume du jour" stroke="#f59e0b" strokeWidth={1.5} fillOpacity={0} />
                     </AreaChart>
                   </ResponsiveContainer>

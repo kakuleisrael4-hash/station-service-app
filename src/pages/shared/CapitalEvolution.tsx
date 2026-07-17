@@ -1,6 +1,6 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { TrendingUp, Wallet, Droplets, HandCoins, Landmark, Truck, DollarSign, Banknote, Fuel, Coins } from 'lucide-react';
-import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
+import { Card, SectionTitle, StatCard, EmptyState, AnimatedNumber } from '@/components/ui';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { useData } from '@/context/DataContext';
 import { computeCapital, capitalByCurrency, salesByFuel } from '@/lib/selectors';
@@ -30,7 +30,7 @@ export default function CapitalEvolution() {
         <StatCard label="Valeur stock carburant" value={fc(b.stock_value)} icon={<Droplets className="h-4 w-4" />} />
         <StatCard label="Dettes recouvrables" value={fc(b.debts)} icon={<HandCoins className="h-4 w-4" />} accent="text-fuel-400" />
         <StatCard label="Commandes en cours" value={fc(b.orders_value)} icon={<Truck className="h-4 w-4" />} accent="text-sky-400" />
-        <StatCard label="CAPITAL TOTAL" value={fc(b.capital)} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
+        <StatCard label="CAPITAL TOTAL" value={<AnimatedNumber value={b.capital} format={fc} />} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
       </div>
 
       {/* ===== TRANSPARENCE DEVISES : 3 blocs distincts ===== */}
@@ -38,7 +38,7 @@ export default function CapitalEvolution() {
         {/* Bloc USD natif */}
         <Card className="ring-1 ring-fuel-400/20">
           <div className="mb-3 flex items-center gap-2 text-fuel-300"><DollarSign className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Total Global en Dollars</h3></div>
-          <p className="text-3xl font-black tabular-nums text-fuel-300">{usd(cc.usd.total)}</p>
+          <p className="text-3xl font-black tabular-nums text-fuel-300"><AnimatedNumber value={cc.usd.total} format={usd} /></p>
           <p className="mb-3 text-xs text-slate-500">≈ {fc(cc.usdInFc)} au taux {taux} FC/$</p>
           <dl className="space-y-1.5 text-sm">
             <Row label="Caisse USD" value={usd(cc.usd.caisse)} />
@@ -49,7 +49,7 @@ export default function CapitalEvolution() {
         {/* Bloc FC natif */}
         <Card className="ring-1 ring-sky-400/20">
           <div className="mb-3 flex items-center gap-2 text-sky-300"><Banknote className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Total Global en Francs</h3></div>
-          <p className="mb-3 text-3xl font-black tabular-nums text-sky-300">{fc(cc.fc.total)}</p>
+          <p className="mb-3 text-3xl font-black tabular-nums text-sky-300"><AnimatedNumber value={cc.fc.total} format={fc} /></p>
           <dl className="space-y-1.5 text-sm">
             <Row label="Caisse FC" value={fc(cc.fc.caisse)} />
             <Row label="Dettes clients (FC)" value={fc(cc.fc.debts)} />
@@ -61,7 +61,7 @@ export default function CapitalEvolution() {
         {/* Grand total consolidé */}
         <Card className="bg-energy-500/[0.06] ring-1 ring-energy-400/40">
           <div className="mb-3 flex items-center gap-2 text-energy-300"><Coins className="h-5 w-5" /><h3 className="font-black uppercase tracking-wide">Grand Total Consolidé</h3></div>
-          <p className="text-3xl font-black tabular-nums text-energy-300">{fc(cc.grandTotalFc)}</p>
+          <p className="text-3xl font-black tabular-nums text-energy-300"><AnimatedNumber value={cc.grandTotalFc} format={fc} /></p>
           <p className="mb-3 text-xs text-slate-500">Total FC + (Total USD × {taux})</p>
           <dl className="space-y-1.5 text-sm">
             <Row label="Bloc FC" value={fc(cc.fc.total)} />
@@ -102,8 +102,8 @@ export default function CapitalEvolution() {
               <AreaChart data={history} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
                 <defs>
                   <linearGradient id="cap" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -115,7 +115,7 @@ export default function CapitalEvolution() {
                   labelFormatter={(l) => fullDate(String(l))}
                 />
                 <Legend />
-                <Area type="monotone" dataKey="capital" name="Capital total" stroke="#10b981" strokeWidth={2.5} fill="url(#cap)" />
+                <Area type="monotone" dataKey="capital" name="Capital total" stroke="#f97316" strokeWidth={2.5} fill="url(#cap)" />
                 <Area type="monotone" dataKey="stock_value" name="Valeur stock" stroke="#f59e0b" strokeWidth={1.5} fillOpacity={0} />
                 <Area type="monotone" dataKey="caisse" name="Caisse" stroke="#38bdf8" strokeWidth={1.5} fillOpacity={0} />
               </AreaChart>

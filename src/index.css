@@ -15,23 +15,27 @@ body,
 }
 
 body {
+  /* « Dark Space » : zinc-950 + cercles de lumière radiale orange floutés (mesh) */
   @apply bg-night-950 text-slate-100 font-sans antialiased;
   background-image:
-    radial-gradient(60rem 60rem at 80% -10%, rgba(16, 185, 129, 0.12), transparent 60%),
-    radial-gradient(50rem 50rem at -10% 20%, rgba(245, 158, 11, 0.08), transparent 55%);
+    radial-gradient(55rem 55rem at 85% -12%, rgba(249, 115, 22, 0.07), transparent 60%),
+    radial-gradient(45rem 45rem at -12% 25%, rgba(249, 115, 22, 0.05), transparent 55%),
+    radial-gradient(40rem 40rem at 55% 115%, rgba(251, 146, 60, 0.05), transparent 55%);
   background-attachment: fixed;
 }
 
 @layer components {
+  /* Glassmorphism : verre dépoli sombre, jamais de rectangles gris opaques */
   .glass {
-    @apply bg-white/[0.04] border border-white/10 backdrop-blur-xl;
+    @apply bg-zinc-900/40 backdrop-blur-md border border-white/5;
   }
   .card {
-    @apply glass rounded-2xl shadow-card;
+    @apply glass rounded-2xl shadow-2xl;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-energy-400/60 disabled:opacity-50 disabled:cursor-not-allowed;
+           active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-energy-400/60
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
     @apply btn bg-energy-500 text-night-950 hover:bg-energy-400 shadow-glow;
@@ -51,6 +55,42 @@ body {
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  /* Entrées en scène décalées : les enfants apparaissent en cascade (fade + 15px) */
+  .stagger > * {
+    animation: fade-up 0.4s ease-out both;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 70ms; }
+  .stagger > *:nth-child(3) { animation-delay: 140ms; }
+  .stagger > *:nth-child(4) { animation-delay: 210ms; }
+  .stagger > *:nth-child(5) { animation-delay: 280ms; }
+  .stagger > *:nth-child(6) { animation-delay: 350ms; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 420ms; }
+
+  /* Squelette de chargement : vague lumineuse diagonale sur verre translucide */
+  .skeleton {
+    @apply rounded-2xl bg-zinc-900/40 border border-white/5;
+    background-image: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(249, 115, 22, 0.08) 50%,
+      rgba(255, 255, 255, 0.06) 55%,
+      transparent 65%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  /* Carte d'action rapide flottante (Quick Action) */
+  .quick-action {
+    @apply card flex items-center gap-3 p-4 text-left transition-all duration-200 cursor-pointer;
+  }
+  .quick-action:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25), 0 0 28px rgba(249, 115, 22, 0.28),
+      0 18px 50px -12px rgba(0, 0, 0, 0.6);
   }
 }
 

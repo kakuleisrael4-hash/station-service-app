@@ -55,9 +55,9 @@ export default function ProfitExpensesChart() {
                 labelFormatter={(l) => fullDate(String(l))}
               />
               <Legend />
-              <Bar dataKey="benefices" name="Bénéfices (jour)" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={26} />
+              <Bar dataKey="benefices" name="Bénéfices (jour)" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={26} />
               <Bar dataKey="depenses" name="Dépenses (jour)" fill="#fb7185" radius={[4, 4, 0, 0]} maxBarSize={26} />
-              <Line type="monotone" dataKey="benefices_cumul" name="Bénéfices cumulés" stroke="#34d399" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="benefices_cumul" name="Bénéfices cumulés" stroke="#fb923c" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="depenses_cumul" name="Dépenses cumulées" stroke="#f43f5e" strokeWidth={2} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>

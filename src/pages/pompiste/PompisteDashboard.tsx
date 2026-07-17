@@ -98,7 +98,7 @@ export default function PompisteDashboard() {
                       labelFormatter={(l) => fullDate(String(l))}
                     />
                     <Legend />
-                    <Line type="monotone" dataKey="essence" name="Essence" stroke="#10b981" strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="essence" name="Essence" stroke="#f97316" strokeWidth={2.5} dot={false} />
                     <Line type="monotone" dataKey="gasoil" name="Gasoil" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>

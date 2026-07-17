@@ -8,7 +8,7 @@ import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ReportsHistory from '@/components/ReportsHistory';
 import SideNav from '@/components/SideNav';
-import { Card, SectionTitle, StatCard, Gauge, EmptyState } from '@/components/ui';
+import { Card, SectionTitle, StatCard, Gauge, EmptyState, AnimatedNumber } from '@/components/ui';
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
 import CaisseExpenses from './CaisseExpenses';
@@ -74,15 +74,31 @@ export default function AdminDashboard() {
   return (
     <DashboardShell>
       <div className="lg:flex lg:items-start lg:gap-6">
-      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)} />
-      <div className="min-w-0 flex-1">
+      <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)}
+        bottomBar={{ itemIds: ['communique', 'historique', 'caisse'], centerId: 'rapport' }} />
+      <div className="min-w-0 flex-1 pb-24 lg:pb-0">
 
       {tab === 'communique' && (
         <div className="space-y-5">
+          {/* Actions rapides flottantes (Quick Actions) */}
+          <div className="stagger grid gap-3 sm:grid-cols-3">
+            <button onClick={() => setTab('rapport')} className="quick-action">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-energy-500 to-rose-500 text-white shadow-glow-soft"><FilePlus2 className="h-5 w-5" /></span>
+              <span><span className="block font-bold">Saisir un rapport</span><span className="block text-xs text-zinc-400">Nouveau shift pompiste</span></span>
+            </button>
+            <button onClick={() => setTab('caisse')} className="quick-action">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-fuel-400 to-energy-600 text-night-950 shadow-glow-soft"><Receipt className="h-5 w-5" /></span>
+              <span><span className="block font-bold">Ajouter une dépense</span><span className="block text-xs text-zinc-400">FC, USD ou mixte</span></span>
+            </button>
+            <button onClick={() => setTab('caisse')} className="quick-action">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-400 to-energy-500 text-white shadow-glow-soft"><Wallet className="h-5 w-5" /></span>
+              <span><span className="block font-bold">Approvisionner la caisse</span><span className="block text-xs text-zinc-400">Apport hors rapport</span></span>
+            </button>
+          </div>
           <ChampionsPodium />
           <AnnouncementsFeed />
-          <div className="grid gap-4 sm:grid-cols-4">
-            <StatCard label="Caisse du mois" value={fc(caisseMois)} accent="text-energy-400" />
+          <div className="stagger grid gap-4 sm:grid-cols-4">
+            <StatCard label="Caisse du mois" value={<AnimatedNumber value={caisseMois} format={fc} />} accent="text-energy-400" />
             <StatCard label="Volume Super (mois)" value={liters(volSuper)} icon={<Droplets className="h-4 w-4 text-energy-400" />} accent="text-energy-300" />
             <StatCard label="Volume Gasoil (mois)" value={liters(volGasoil)} icon={<Fuel className="h-4 w-4 text-fuel-400" />} accent="text-fuel-300" />
             <StatCard label="Manquants (mois)" value={fc(rh.totalManquants)} accent="text-rose-400" />

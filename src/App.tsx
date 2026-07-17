@@ -6,13 +6,27 @@ import PompisteDashboard from './pages/pompiste/PompisteDashboard';
 import ViewerDashboard from './pages/viewer/ViewerDashboard';
 import { Fuel } from 'lucide-react';
 
+/** Squelettes shimmer : cartes translucides parcourues d'une vague lumineuse. */
 function Splash() {
   return (
-    <div className="min-h-screen grid place-items-center">
-      <div className="flex flex-col items-center gap-3 animate-pulse">
-        <Fuel className="h-10 w-10 text-energy-400" />
-        <p className="text-slate-400 text-sm">Chargement de la station…</p>
+    <div className="mx-auto min-h-screen max-w-7xl px-4 py-6 sm:px-6">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-energy-500 text-night-950 shadow-glow-soft">
+          <Fuel className="h-5 w-5" />
+        </div>
+        <div className="space-y-2">
+          <div className="skeleton h-3.5 w-44" />
+          <div className="skeleton h-2.5 w-28" />
+        </div>
       </div>
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-24" />)}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="skeleton h-80 lg:col-span-2" />
+        <div className="skeleton h-80" />
+      </div>
+      <p className="mt-6 text-center text-sm text-slate-500">Chargement de la station…</p>
     </div>
   );
 }

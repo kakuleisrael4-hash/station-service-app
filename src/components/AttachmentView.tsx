@@ -19,7 +19,7 @@ export function categorize(a: Attachment): Kind {
 const DOC_META: Record<Exclude<Kind, 'image' | 'video'>, { icon: typeof FileIcon; color: string; label: string }> = {
   pdf: { icon: FileText, color: '#fb7185', label: 'Document PDF' },
   word: { icon: FileText, color: '#38bdf8', label: 'Document Word' },
-  excel: { icon: FileSpreadsheet, color: '#34d399', label: 'Tableur Excel' },
+  excel: { icon: FileSpreadsheet, color: '#fb923c', label: 'Tableur Excel' },
   text: { icon: FileText, color: '#a78bfa', label: 'Fichier texte' },
   other: { icon: FileIcon, color: '#94a3b8', label: 'Fichier' },
 };
