@@ -274,6 +274,15 @@ create table if not exists public.landing_page_content (
   phones      text,
   address     text,
   social      jsonb not null default '{}'::jsonb,    -- {facebook,instagram,whatsapp,tiktok}
+  -- CMS avancé : agencement, promo, statut ouvert/fermé, modes du Hero
+  sections    jsonb not null default '[{"id":"hero","visible":true},{"id":"tarifs","visible":true},{"id":"features","visible":true},{"id":"apropos","visible":true},{"id":"infos","visible":true},{"id":"cta","visible":true}]'::jsonb,
+  promo_text  text not null default '',
+  hero_mode   text not null default 'image' check (hero_mode in ('image','video','neon')),
+  hero_video_url text not null default '',
+  open_mode   text not null default 'auto' check (open_mode in ('auto','force_closed')),
+  closed_reason text not null default '',
+  open_from   text not null default '',              -- "HH:MM" ('' = 24h/24)
+  open_to     text not null default '',
   updated_at  timestamptz not null default now(),
   constraint landing_singleton check (id)
 );

@@ -62,7 +62,19 @@ const NAV_GROUPS = [
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('communique');
-  const { reports, pompistes, cisterns, settings, deleteReport } = useData();
+  const { reports, pompistes, cisterns, settings, deleteReport, landing, updateLanding } = useData();
+
+  // Bouton d'urgence : force le statut public OUVERT/FERMÉ (Realtime -> site à jour sans rechargement).
+  const stationClosed = landing.open_mode === 'force_closed';
+  async function toggleStation() {
+    if (stationClosed) {
+      await updateLanding({ ...landing, open_mode: 'auto', closed_reason: '' });
+    } else {
+      const motif = window.prompt('Motif court de la fermeture exceptionnelle :', 'Maintenance technique');
+      if (motif === null) return;
+      await updateLanding({ ...landing, open_mode: 'force_closed', closed_reason: motif.trim() });
+    }
+  }
   const rh = stationRH(pompistes, settings.taux_journalier);
   const period = currentPeriod();
   const monthReports = reports.filter((r) => r.report_date.startsWith(period) && r.status === 'valide');
@@ -80,6 +92,17 @@ export default function AdminDashboard() {
 
       {tab === 'communique' && (
         <div className="space-y-5">
+          {/* Bouton d'urgence : statut public de la station */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/40 px-4 py-3 backdrop-blur-md">
+            <span className={`chip ${stationClosed ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+              <span className={`h-2 w-2 rounded-full animate-pulse-neon ${stationClosed ? 'bg-rose-400 text-rose-400' : 'bg-emerald-400 text-emerald-400'}`} />
+              {stationClosed ? `Site public : FERMÉE — ${landing.closed_reason || 'exceptionnelle'}` : 'Site public : STATION OUVERTE'}
+            </span>
+            <button onClick={toggleStation} className={`btn !py-1.5 !px-3 text-xs font-bold ${stationClosed ? 'bg-emerald-500 text-night-950' : 'bg-rose-500/80 text-white hover:bg-rose-500'}`}>
+              {stationClosed ? 'Rouvrir la station' : '⛔ Fermer exceptionnellement'}
+            </button>
+          </div>
+
           {/* Actions rapides flottantes (Quick Actions) */}
           <div className="stagger grid gap-3 sm:grid-cols-3">
             <button onClick={() => setTab('rapport')} className="quick-action">

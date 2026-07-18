@@ -16,7 +16,7 @@ import { currentPeriod, monthLabel, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
 import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, SalaryPaymentInput, StationDB, StationData } from './db';
 
-const STORE_KEY = 'kkcoil.store.v12';
+const STORE_KEY = 'kkcoil.store.v13';
 const SESSION_KEY = 'kkcoil.session.v11';
 const PW_KEY = 'kkcoil.pw.v11';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2));

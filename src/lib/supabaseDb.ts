@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AppUser, PumpReading, Report } from '@/types';
 import type { NewDebtInput, NewExpenseInput, NewOrderInput, StationDB, StationData } from './db';
 import { getSupabase } from './supabaseClient';
-import { DEFAULT_LANDING } from '@/constants';
+import { DEFAULT_LANDING, normalizeLanding } from '@/constants';
 import { fileToBlob } from './files';
 
 const n = (v: unknown) => (v == null ? 0 : Number(v));
@@ -133,7 +133,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           taux_journalier: n(s?.taux_journalier) || 2850,
           updated_at: s?.updated_at ?? new Date().toISOString(),
         },
-        landing: l ? {
+        landing: l ? normalizeLanding({
           hero_title: l.hero_title ?? DEFAULT_LANDING.hero_title,
           hero_slogan: l.hero_slogan ?? DEFAULT_LANDING.hero_slogan,
           hero_bg_url: l.hero_bg_url ?? '',
@@ -144,8 +144,16 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           phones: l.phones ?? DEFAULT_LANDING.phones,
           address: l.address ?? DEFAULT_LANDING.address,
           social: l.social ?? {},
+          sections: l.sections ?? undefined,
+          promo_text: l.promo_text ?? '',
+          hero_mode: l.hero_mode ?? 'image',
+          hero_video_url: l.hero_video_url ?? '',
+          open_mode: l.open_mode ?? 'auto',
+          closed_reason: l.closed_reason ?? '',
+          open_from: l.open_from ?? '',
+          open_to: l.open_to ?? '',
           updated_at: l.updated_at ?? new Date().toISOString(),
-        } : DEFAULT_LANDING,
+        }) : DEFAULT_LANDING,
         notifications: (notifs.data ?? []) as any,
         salaryHistory: (salary.data ?? []) as any,
         salaryPayments: (salaryPays.data ?? []).map((p: any) => ({ ...p, temps_travail: n(p.temps_travail), montant_paye_fc: n(p.montant_paye_fc), montant_paye_usd: n(p.montant_paye_usd) })) as any,

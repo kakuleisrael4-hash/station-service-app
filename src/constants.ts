@@ -40,6 +40,25 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /** Contenu par défaut de la vitrine (modifiable via le CMS « Gestion du site »). */
+/** Ordre par défaut des sections de la page publique (toutes visibles). */
+export const DEFAULT_SECTIONS: LandingContent['sections'] = [
+  { id: 'hero', visible: true },
+  { id: 'tarifs', visible: true },
+  { id: 'features', visible: true },
+  { id: 'apropos', visible: true },
+  { id: 'infos', visible: true },
+  { id: 'cta', visible: true },
+];
+
+export const SECTION_LABELS: Record<LandingContent['sections'][number]['id'], string> = {
+  hero: 'Bannière Hero',
+  tarifs: 'Tarifs du jour',
+  features: 'Points forts',
+  apropos: 'À propos & Galerie',
+  infos: 'Infos pratiques & Réseaux',
+  cta: 'Appel à connexion (CTA)',
+};
+
 export const DEFAULT_LANDING: LandingContent = {
   hero_title: 'Le carburant de qualité, la gestion moderne.',
   hero_slogan: STATION.tagline,
@@ -52,8 +71,27 @@ export const DEFAULT_LANDING: LandingContent = {
   phones: STATION.phone,
   address: STATION.city,
   social: {},
+  sections: DEFAULT_SECTIONS,
+  promo_text: '',
+  hero_mode: 'image',
+  hero_video_url: '',
+  open_mode: 'auto',
+  closed_reason: '',
+  open_from: '',
+  open_to: '',
   updated_at: new Date().toISOString(),
 };
+
+/** Normalise un contenu landing potentiellement ancien (colonnes manquantes). */
+export function normalizeLanding(raw: Partial<LandingContent> | null | undefined): LandingContent {
+  const base = raw ?? {};
+  const sections = Array.isArray(base.sections) && base.sections.length > 0
+    ? // garantit que toutes les sections connues existent (ajouts futurs inclus)
+      [...base.sections.filter((s) => DEFAULT_SECTIONS.some((d) => d.id === s.id)),
+       ...DEFAULT_SECTIONS.filter((d) => !base.sections!.some((s) => s.id === d.id))]
+    : DEFAULT_SECTIONS;
+  return { ...DEFAULT_LANDING, ...base, sections, social: base.social ?? {}, gallery: base.gallery ?? [] };
+}
 
 // ----------------------- INFRASTRUCTURE PHYSIQUE ---------------------
 // IDs stables partagés entre le seed mock et les références UI.

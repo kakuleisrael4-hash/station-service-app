@@ -247,6 +247,18 @@ export interface SocialLinks {
   tiktok?: string;
 }
 
+/** Sections ré-ordonnables / masquables de la page d'accueil. */
+export type LandingSectionId = 'hero' | 'tarifs' | 'features' | 'apropos' | 'infos' | 'cta';
+export interface LandingSection {
+  id: LandingSectionId;
+  visible: boolean;
+}
+
+/** Expérience visuelle du Hero. */
+export type HeroMode = 'image' | 'video' | 'neon';
+/** Statut de la station : auto (selon horaires) ou fermeture forcée. */
+export type OpenMode = 'auto' | 'force_closed';
+
 /** Contenu éditable de la page d'accueil (table landing_page_content, singleton). */
 export interface LandingContent {
   hero_title: string;
@@ -259,6 +271,15 @@ export interface LandingContent {
   phones: string;
   address: string;
   social: SocialLinks;
+  // --- CMS avancé ---
+  sections: LandingSection[]; // ordre vertical + visibilité de chaque section
+  promo_text: string; // badge promo au-dessus des tarifs ('' = masqué)
+  hero_mode: HeroMode; // image | video | neon
+  hero_video_url: string; // boucle vidéo MP4 (mode video)
+  open_mode: OpenMode; // statut station : auto ou fermeture forcée
+  closed_reason: string; // motif court de fermeture exceptionnelle
+  open_from: string; // "HH:MM" — vide = 24h/24
+  open_to: string; // "HH:MM"
   updated_at: string;
 }
 
