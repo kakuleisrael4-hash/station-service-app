@@ -83,6 +83,26 @@ body {
     animation: shimmer 2.2s linear infinite;
   }
 
+  /* Tableaux modernes : lignes alternées translucides + surbrillance au survol */
+  .card table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  .card table tbody tr {
+    @apply transition-colors;
+  }
+  .card table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Puce de filtre cliquable (remplace les menus déroulants) */
+  .chip-filter {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer
+           bg-white/5 text-zinc-400 ring-1 ring-white/10 hover:bg-white/10 hover:text-white active:scale-95;
+  }
+  .chip-filter-on {
+    @apply bg-energy-500/15 text-energy-300 ring-energy-400/50 shadow-[0_0_14px_rgba(249,115,22,0.25)];
+  }
+
   /* Carte d'action rapide flottante (Quick Action) */
   .quick-action {
     @apply card flex items-center gap-3 p-4 text-left transition-all duration-200 cursor-pointer;

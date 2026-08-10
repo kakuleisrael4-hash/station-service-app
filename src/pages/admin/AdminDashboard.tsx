@@ -7,7 +7,8 @@ import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ReportsHistory from '@/components/ReportsHistory';
-import SideNav from '@/components/SideNav';
+import SideNav, { Breadcrumb } from '@/components/SideNav';
+import CommandPalette, { type CommandEntry } from '@/components/CommandPalette';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState, AnimatedNumber } from '@/components/ui';
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
@@ -60,6 +61,18 @@ const NAV_GROUPS = [
   },
 ];
 
+// Recherche globale Ctrl+K : tous les modules + alias d'actions courantes.
+const COMMANDS: CommandEntry[] = [
+  ...NAV_GROUPS.flatMap((g) => g.items.map((it) => ({ id: it.id, label: it.label, group: g.label, icon: it.icon }))),
+  { id: 'caisse', label: 'Ajouter une dépense', group: '⚡ Action rapide', icon: <Receipt className="h-4 w-4" />, keywords: 'depense facture sortie argent' },
+  { id: 'caisse', label: 'Approvisionner la caisse (apport)', group: '⚡ Action rapide', icon: <Wallet className="h-4 w-4" />, keywords: 'apport fonds injecter caisse' },
+  { id: 'salaires', label: 'Payer un pompiste', group: '⚡ Action rapide', icon: <Wallet className="h-4 w-4" />, keywords: 'paie salaire paiement rh' },
+  { id: 'carburant', label: 'Aller au stock (citernes)', group: '⚡ Action rapide', icon: <Droplets className="h-4 w-4" />, keywords: 'stock cuve citerne carburant jauge' },
+  { id: 'capital', label: 'Voir le capital', group: '⚡ Action rapide', icon: <Landmark className="h-4 w-4" />, keywords: 'capital patrimoine evolution courbe' },
+  { id: 'rapport', label: 'Saisir un nouveau rapport', group: '⚡ Action rapide', icon: <FilePlus2 className="h-4 w-4" />, keywords: 'shift pompiste index billetage' },
+  { id: 'cloture', label: 'Clôturer la journée', group: '⚡ Action rapide', icon: <CalendarCheck className="h-4 w-4" />, keywords: 'cloture consolidation ventes journalieres' },
+];
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>('communique');
   const { reports, pompistes, cisterns, settings, deleteReport, landing, updateLanding } = useData();
@@ -88,7 +101,9 @@ export default function AdminDashboard() {
       <div className="lg:flex lg:items-start lg:gap-6">
       <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)}
         bottomBar={{ itemIds: ['communique', 'historique', 'caisse'], centerId: 'rapport' }} />
+      <CommandPalette entries={COMMANDS} onSelect={(id) => setTab(id as Tab)} />
       <div className="min-w-0 flex-1 pb-24 lg:pb-0">
+      <Breadcrumb groups={NAV_GROUPS} active={tab} />
 
       {tab === 'communique' && (
         <div className="space-y-5">

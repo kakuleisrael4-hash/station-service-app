@@ -62,16 +62,11 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
     <Card>
       <SectionTitle icon={<History className="h-5 w-5" />} title="Historique des rapports" subtitle="Recherche par pompiste · plage de dates · statut" />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-3 grid gap-2 sm:grid-cols-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input className="field !pl-9" placeholder="Nom du pompiste…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <select className="field" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
-          <option value="all">Tous les statuts</option>
-          <option value="encours">En cours (non clôturés)</option>
-          <option value="cloture">Clôturés</option>
-        </select>
         <div>
           <label className="label !mb-0.5 text-[10px]">Du</label>
           <input type="date" className="field !py-1.5" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -81,13 +76,49 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
           <input type="date" className="field !py-1.5" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
       </div>
+      {/* Filtre statut en puces */}
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {([['all', 'Tous'], ['encours', 'En cours'], ['cloture', 'Rapports clôturés']] as [StatusFilter, string][]).map(([v, l]) => (
+          <button key={v} onClick={() => setStatus(v)} className={`chip-filter ${status === v ? 'chip-filter-on' : ''}`}>{l}</button>
+        ))}
+      </div>
 
       <div className="mb-2 text-xs text-slate-400">{rows.length} rapport{rows.length > 1 ? 's' : ''}</div>
 
       {rows.length === 0 ? (
         <EmptyState>Aucun rapport ne correspond à ces critères.</EmptyState>
       ) : (
-        <div className="max-h-[32rem] overflow-x-auto overflow-y-auto">
+        <>
+        {/* ===== Mobile : cartes individuelles (le tableau devient illisible) ===== */}
+        <div className="space-y-2.5 sm:hidden">
+          {rows.map((r) => (
+            <div key={r.id} className="rounded-xl bg-white/[0.03] p-3.5 ring-1 ring-white/10">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-bold">{nameOf(r.pompiste_id)}</p>
+                  <p className="text-xs text-slate-500">{shortDate(r.report_date)}</p>
+                </div>
+                <span className={`chip ${r.closed ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{r.closed ? 'Clôturé' : 'En cours'}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                <span className="text-slate-400">Super</span><span className="text-right tabular-nums text-energy-300">{liters(r.essence_litrage)}</span>
+                <span className="text-slate-400">Gasoil</span><span className="text-right tabular-nums text-fuel-300">{liters(r.gasoil_litrage)}</span>
+                <span className="text-slate-400">À remettre</span><span className="text-right font-semibold tabular-nums">{fc(r.total_a_remettre)}</span>
+                <span className="text-slate-400">Écart</span>
+                <span className={`text-right tabular-nums ${Math.abs(r.montant_ecart ?? 0) < 1 ? 'text-slate-500' : r.montant_ecart < 0 ? 'text-rose-400' : 'text-fuel-400'}`}>
+                  {Math.abs(r.montant_ecart ?? 0) < 1 ? '—' : `${r.montant_ecart > 0 ? '+' : ''}${fc(r.montant_ecart)}`}
+                </span>
+              </div>
+              <div className="mt-2.5 flex justify-end gap-3 border-t border-white/5 pt-2">
+                <button onClick={() => exportFresh(r)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-energy-400"><FileDown className="h-4 w-4" /> PDF</button>
+                {onDelete && <button onClick={() => setPending(r)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400"><Trash2 className="h-4 w-4" /> Supprimer</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ===== Desktop : tableau (sticky header + survol) ===== */}
+        <div className="hidden max-h-[32rem] overflow-x-auto overflow-y-auto sm:block">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-night-950/95 backdrop-blur">
               <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
@@ -124,6 +155,7 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* POP-UP de confirmation de suppression */}

@@ -15,12 +15,14 @@ export default {
         },
         energy: {
           // « Le Feu Sacré » — orange vif #f97316
+          300: '#fdba74',
           400: '#fb923c',
           500: '#f97316',
           600: '#ea580c',
         },
         fuel: {
           // Or ambré complémentaire (gasoil, métriques secondaires)
+          300: '#fcd34d',
           400: '#fbbf24',
           500: '#f59e0b',
           600: '#d97706',

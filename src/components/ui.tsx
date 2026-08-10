@@ -102,9 +102,14 @@ export function Gauge({ label, current, capacity, unit = 'L', color = 'energy', 
         <p className={`relative z-10 text-lg font-black tabular-nums ${low ? 'text-rose-400' : 'text-energy-400'}`}>{pct.toFixed(0)}%</p>
       </div>
       <div className="min-w-0">
-        <p className="truncate font-semibold">{label}</p>
-        <p className="mt-1 text-xs text-slate-400 tabular-nums">
-          {Math.round(current).toLocaleString('fr-FR')} / {Math.round(capacity).toLocaleString('fr-FR')} {unit}
+        <div className="flex items-center gap-2">
+          <p className="truncate font-semibold">{label}</p>
+          <span className={`chip !px-2 !py-0.5 text-[10px] ${color === 'fuel' ? 'bg-fuel-500/15 text-fuel-300' : 'bg-energy-500/15 text-energy-300'}`}>
+            {color === 'fuel' ? 'GASOIL' : 'SUPER'}
+          </span>
+        </div>
+        <p className="mt-1 text-lg font-extrabold tabular-nums text-white">
+          {Math.round(current).toLocaleString('fr-FR')} <span className="text-xs font-normal text-slate-400">/ {Math.round(capacity).toLocaleString('fr-FR')} {unit}</span>
         </p>
         {low && <p className="mt-1 text-xs font-semibold text-rose-400 animate-pulse-neon">• Niveau bas</p>}
       </div>

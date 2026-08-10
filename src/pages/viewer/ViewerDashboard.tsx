@@ -10,7 +10,8 @@ import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import ExpensesTable from '@/components/ExpensesTable';
 import ReportsHistory from '@/components/ReportsHistory';
-import SideNav from '@/components/SideNav';
+import SideNav, { Breadcrumb } from '@/components/SideNav';
+import CommandPalette from '@/components/CommandPalette';
 import { Card, SectionTitle, StatCard, Gauge, EmptyState, AnimatedNumber } from '@/components/ui';
 import FuelStockManagement from '../shared/FuelStockManagement';
 import CapitalEvolution from '../shared/CapitalEvolution';
@@ -61,7 +62,10 @@ export default function ViewerDashboard() {
       <div className="lg:flex lg:items-start lg:gap-6">
       <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)}
         bottomBar={{ itemIds: ['global', 'rapports', 'depenses'], centerId: 'capital' }} />
+      <CommandPalette onSelect={(id) => setTab(id as Tab)}
+        entries={NAV_GROUPS.flatMap((g) => g.items.map((it) => ({ id: it.id, label: it.label, group: g.label, icon: it.icon })))} />
       <div className="min-w-0 flex-1 pb-24 lg:pb-0">
+      <Breadcrumb groups={NAV_GROUPS} active={tab} />
 
       {tab === 'rapports' && <ReportsHistory reports={reports} pompistes={pompistes} />}
       {tab === 'carburant' && <FuelStockManagement />}

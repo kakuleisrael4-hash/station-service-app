@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { ChevronRight, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 
 export interface NavItem {
   id: string;
@@ -20,21 +20,37 @@ interface Props {
   bottomBar?: { itemIds: string[]; centerId: string };
 }
 
-function GroupList({ groups, active, onSelect }: Omit<Props, 'bottomBar'>) {
+/** Fil d'Ariane : « Pôle / Onglet actif » (emoji du pôle inclus). */
+export function Breadcrumb({ groups, active }: { groups: NavGroup[]; active: string }) {
+  const group = groups.find((g) => g.items.some((it) => it.id === active));
+  const item = group?.items.find((it) => it.id === active);
+  if (!group || !item) return null;
+  return (
+    <div className="mb-4 flex items-center gap-1.5 text-sm">
+      <span className="text-zinc-500">{group.label}</span>
+      <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
+      <span className="flex items-center gap-1.5 font-semibold text-energy-300">{item.icon}{item.label}</span>
+    </div>
+  );
+}
+
+function GroupList({ groups, active, onSelect, collapsed = false }: Omit<Props, 'bottomBar'> & { collapsed?: boolean }) {
   return (
     <nav className="space-y-5">
       {groups.map((g) => (
         <div key={g.label}>
-          <p className="mb-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-500">{g.label}</p>
+          {collapsed
+            ? <div className="mx-auto mb-1.5 h-px w-6 bg-white/10" />
+            : <p className="mb-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-500">{g.label}</p>}
           <ul className="space-y-0.5">
             {g.items.map((it) => {
               const isActive = it.id === active;
               return (
                 <li key={it.id}>
-                  <button onClick={() => onSelect(it.id)}
-                    className={`relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive ? 'text-energy-300' : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-                    }`}>
+                  <button onClick={() => onSelect(it.id)} title={collapsed ? it.label : undefined}
+                    className={`relative flex w-full items-center gap-2.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                      collapsed ? 'justify-center px-0' : 'px-3'
+                    } ${isActive ? 'text-energy-300' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
                     {isActive && (
                       <motion.span layoutId="nav-active" transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                         className="absolute inset-0 rounded-xl bg-energy-500/10 ring-1 ring-energy-400/40 shadow-[0_0_20px_rgba(249,115,22,0.3)]" />
@@ -44,7 +60,7 @@ function GroupList({ groups, active, onSelect }: Omit<Props, 'bottomBar'>) {
                         className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-full bg-energy-400 shadow-[0_0_12px_rgba(249,115,22,0.9)]" />
                     )}
                     <span className="relative z-10">{it.icon}</span>
-                    <span className="relative z-10 truncate">{it.label}</span>
+                    {!collapsed && <span className="relative z-10 truncate">{it.label}</span>}
                   </button>
                 </li>
               );
@@ -65,6 +81,9 @@ function GroupList({ groups, active, onSelect }: Omit<Props, 'bottomBar'>) {
  */
 export default function SideNav({ groups, active, onSelect, bottomBar }: Props) {
   const [open, setOpen] = useState(false);
+  // Sidebar rétractable (mode icônes seules) — préférence mémorisée.
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('kkcoil.nav.collapsed') === '1');
+  const toggleCollapsed = () => setCollapsed((c) => { localStorage.setItem('kkcoil.nav.collapsed', c ? '0' : '1'); return !c; });
   const all = groups.flatMap((g) => g.items);
   const find = (id: string) => all.find((it) => it.id === id);
   const barItems = (bottomBar?.itemIds ?? []).map(find).filter(Boolean) as NavItem[];
@@ -72,9 +91,13 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
 
   return (
     <>
-      {/* ===== Desktop : sidebar flottante « glass » ===== */}
-      <aside className="sticky top-20 hidden max-h-[calc(100vh-6rem)] w-56 shrink-0 self-start overflow-y-auto rounded-2xl border border-white/5 bg-zinc-900/40 p-3 shadow-2xl backdrop-blur-md lg:block">
-        <GroupList groups={groups} active={active} onSelect={onSelect} />
+      {/* ===== Desktop : sidebar flottante « glass », rétractable en icônes ===== */}
+      <aside className={`sticky top-20 hidden max-h-[calc(100vh-6rem)] shrink-0 self-start overflow-y-auto rounded-2xl border border-white/5 bg-zinc-900/40 p-3 shadow-2xl backdrop-blur-md transition-all duration-300 lg:block ${collapsed ? 'w-16' : 'w-56'}`}>
+        <button onClick={toggleCollapsed} title={collapsed ? 'Déployer le menu' : 'Réduire en icônes'}
+          className={`mb-3 flex w-full items-center gap-2 rounded-xl py-1.5 text-xs text-zinc-500 hover:bg-white/5 hover:text-white ${collapsed ? 'justify-center px-0' : 'px-3'}`}>
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /> Réduire</>}
+        </button>
+        <GroupList groups={groups} active={active} onSelect={onSelect} collapsed={collapsed} />
       </aside>
 
       {/* ===== Mobile : Bottom Bar Fintech ===== */}

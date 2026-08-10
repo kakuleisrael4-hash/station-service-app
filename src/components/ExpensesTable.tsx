@@ -117,32 +117,29 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
         }
       />
 
-      {/* Barre de recherche + filtres */}
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Barre de recherche + filtres en puces */}
+      <div className="mb-3 grid gap-2 sm:grid-cols-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input className="field !pl-9" placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <select className="field" value={origin} onChange={(e) => setOrigin(e.target.value as OriginFilter)}>
-          <option value="all">Toutes origines</option>
-          <option value="rapport">Dépenses de rapports</option>
-          <option value="hors">Dépenses hors rapports</option>
-        </select>
         <select className="field" value={catId} onChange={(e) => setCatId(e.target.value)}>
           <option value="">Toutes catégories</option>
           {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select className="field" value={cur} onChange={(e) => setCur(e.target.value as 'all' | Currency)}>
-          <option value="all">Toutes devises</option>
-          <option value="FC">FC (Franc)</option>
-          <option value="USD">USD (Dollar)</option>
-        </select>
-        <select className="field" value={period} onChange={(e) => setPeriod(e.target.value as PeriodFilter)}>
-          <option value="all">Toute la période</option>
-          <option value="today">Aujourd'hui</option>
-          <option value="week">Cette semaine</option>
-          <option value="month">Ce mois-ci</option>
-        </select>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {([['all', 'Tous'], ['rapport', 'Rapports'], ['hors', 'Hors-rapport']] as [OriginFilter, string][]).map(([v, l]) => (
+          <button key={v} onClick={() => setOrigin(v)} className={`chip-filter ${origin === v ? 'chip-filter-on' : ''}`}>{l}</button>
+        ))}
+        <span className="mx-1 w-px self-stretch bg-white/10" />
+        {([['all', 'FC + USD'], ['FC', 'FC'], ['USD', 'USD']] as ['all' | Currency, string][]).map(([v, l]) => (
+          <button key={v} onClick={() => setCur(v)} className={`chip-filter ${cur === v ? 'chip-filter-on' : ''}`}>{l}</button>
+        ))}
+        <span className="mx-1 w-px self-stretch bg-white/10" />
+        {([['all', 'Toute période'], ['today', "Aujourd'hui"], ['week', 'Cette semaine'], ['month', 'Ce mois-ci']] as [PeriodFilter, string][]).map(([v, l]) => (
+          <button key={v} onClick={() => setPeriod(v)} className={`chip-filter ${period === v ? 'chip-filter-on' : ''}`}>{l}</button>
+        ))}
       </div>
 
       <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
