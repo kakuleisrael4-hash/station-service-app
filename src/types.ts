@@ -11,7 +11,7 @@ export type NotifType = 'manquant' | 'augmentation_salaire' | 'rapport_valide' |
 export type MovementKind = 'entree' | 'sortie';
 export type MovementSource = 'livraison' | 'rapport' | 'ajustement';
 export type DebtStatus = 'en_attente' | 'soldee';
-export type OrderStatus = 'en_cours' | 'livre';
+export type OrderStatus = 'en_cours' | 'livre' | 'partielle';
 export type Currency = 'FC' | 'USD';
 /** Décision de l'admin sur l'écart de caisse d'un rapport.
  *  'aucun' = surplus/équilibré (rien à imputer) ·
@@ -188,12 +188,14 @@ export interface SupplierOrder {
   supplier_name: string;
   fuel: FuelType; // SUPER ou GASOIL (arrivage)
   cistern_id: string; // citerne de déchargement (cohérente avec fuel)
-  volume_l: number;
-  purchase_price: number;
+  volume_l: number; // volume commandé (réduit au volume livré si clôturée)
+  purchase_price: number; // pro-raté au volume livré une fois close
   deposit: number;
   status: OrderStatus;
   order_date: string;
   delivered_at?: string | null;
+  delivered_volume_l?: number; // volume réellement déchargé
+  parent_order_id?: string | null; // commande d'origine si né d'un reliquat
 }
 
 // ----------------------------- CAPITAL -------------------------------

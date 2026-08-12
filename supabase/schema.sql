@@ -162,13 +162,20 @@ create table if not exists public.debt_payments (
 );
 
 -- ----------------------- COMMANDES FOURNISSEURS ----------------------
+-- status: 'en_cours' | 'livre' | 'partielle' (text+check plutôt qu'enum, cf.
+-- migration_partial_delivery.sql pour la conversion de la colonne existante).
 create table if not exists public.supplier_orders (
   id uuid primary key default gen_random_uuid(),
   supplier_name text not null, fuel fuel_type not null default 'super',
   cistern_id text not null references public.cisterns (id),
   volume_l numeric(14,2) not null, purchase_price numeric(16,2) not null default 0,
-  deposit numeric(16,2) not null default 0, status order_status not null default 'en_cours',
-  order_date date not null default current_date, delivered_at timestamptz
+  deposit numeric(16,2) not null default 0,
+  status text not null default 'en_cours' check (status in ('en_cours','livre','partielle')),
+  order_date date not null default current_date, delivered_at timestamptz,
+  -- Livraison partielle : volume réellement déchargé (peut différer de volume_l
+  -- une fois la commande close/pro-ratée) + commande d'origine si reliquat.
+  delivered_volume_l numeric(14,2) not null default 0,
+  parent_order_id uuid references public.supplier_orders (id) on delete set null
 );
 
 -- -------------------- CLÔTURES JOURNALIÈRES --------------------------
@@ -427,19 +434,22 @@ drop trigger if exists trg_report_validated on public.reports;
 create trigger trg_report_validated before update on public.reports
   for each row execute function public.on_report_validated();
 
--- 6) Commande livrée -> incrémente la citerne + mouvement d'entrée
+-- 6) Commande livrée (totale OU partielle) -> incrémente la citerne du
+--    volume RÉELLEMENT déchargé (new.volume_l, déjà réduit par deliver_order
+--    au moment de cet UPDATE) + mouvement d'entrée.
 create or replace function public.on_order_delivered() returns trigger language plpgsql as $$
 declare cur numeric; cap numeric; nom text; cfuel fuel_type;
 begin
-  if new.status='livre' and (old.status is distinct from 'livre') then
+  if new.status in ('livre','partielle') and old.status = 'en_cours' then
     select current_l, capacity_l, name, fuel into cur, cap, nom, cfuel from public.cisterns where id=new.cistern_id;
     -- La citerne de déchargement doit correspondre au type de carburant de l'arrivage.
     if cfuel <> new.fuel then
       raise exception 'Citerne % (%) incompatible avec le carburant de l''arrivage (%)', nom, cfuel, new.fuel;
     end if;
-    -- Empêche une livraison qui dépasserait la capacité physique de la citerne.
+    -- Empêche une livraison qui dépasserait la capacité physique de la citerne
+    -- (vérifiée sur le volume réellement déchargé, pas le volume commandé).
     if cur + new.volume_l > cap then
-      raise exception 'Livraison impossible : dépasse la capacité de % (dispo: % L, commande: % L)', nom, (cap-cur), new.volume_l;
+      raise exception 'Livraison impossible : dépasse la capacité de % (dispo: % L, déchargé: % L)', nom, (cap-cur), new.volume_l;
     end if;
     new.delivered_at := now();
     update public.cisterns set current_l=current_l+new.volume_l, updated_at=now() where id=new.cistern_id;
@@ -496,7 +506,7 @@ begin
         + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
         - coalesce((select sum(montant_paye_fc) from public.salary_payments),0)
-        - coalesce((select sum(case when status='livre' then purchase_price else deposit end) from public.supplier_orders),0);
+        - coalesce((select sum(case when status in ('livre','partielle') then purchase_price else deposit end) from public.supplier_orders),0);
   v_usd := coalesce((select sum(total_usd) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
@@ -544,6 +554,52 @@ begin
     delete from public.fuel_movements where ref_id = p_order_id and source = 'livraison';
   end if;
   delete from public.supplier_orders where id = p_order_id;
+  perform public.snapshot_capital();
+end $$;
+
+-- RPC : livraison (totale ou PARTIELLE) d'une commande fournisseur (réservé Admin)
+-- p_delivered_volume : quantité réellement déchargée (<= volume_l commandé).
+--   - Si = volume_l           -> livraison complète, statut 'livre'.
+--   - Si < volume_l ET p_keep_residual=false -> le reste est ANNULÉ ; la
+--     commande (réduite au volume livré, prix pro-raté) passe 'livre'/clôturée.
+--   - Si < volume_l ET p_keep_residual=true  -> la commande d'origine (réduite
+--     au volume livré, prix pro-raté) passe 'partielle' ; une NOUVELLE commande
+--     'en_cours' est créée pour le reliquat (volume + prix restants).
+-- Le trigger on_order_delivered() incrémente la citerne du volume RÉELLEMENT
+-- déchargé (new.volume_l après réduction, dans le même UPDATE).
+create or replace function public.deliver_order(
+  p_order_id uuid, p_delivered_volume numeric, p_keep_residual boolean default false
+) returns void language plpgsql security definer set search_path = public as $$
+declare o record; v_unit_price numeric; v_delivered_price numeric; v_full boolean; v_status text;
+begin
+  if not public.is_admin() then raise exception 'Action réservée à l''administrateur.'; end if;
+  select * into o from public.supplier_orders where id = p_order_id for update;
+  if not found then raise exception 'Commande introuvable.'; end if;
+  if o.status <> 'en_cours' then raise exception 'Cette commande a déjà été traitée.'; end if;
+  if p_delivered_volume is null or p_delivered_volume <= 0 then raise exception 'Quantité livrée invalide.'; end if;
+  if p_delivered_volume > o.volume_l then raise exception 'La quantité livrée (% L) ne peut pas dépasser la quantité commandée (% L).', p_delivered_volume, o.volume_l; end if;
+
+  v_unit_price := case when o.volume_l > 0 then o.purchase_price / o.volume_l else 0 end;
+  v_delivered_price := round((v_unit_price * p_delivered_volume)::numeric, 2);
+  v_full := p_delivered_volume >= o.volume_l;
+  v_status := case when v_full then 'livre' when p_keep_residual then 'partielle' else 'livre' end;
+
+  -- Réduit la commande au volume réellement livré (déclenche on_order_delivered
+  -- avec new.volume_l déjà égal à p_delivered_volume) et pro-rate son prix.
+  update public.supplier_orders
+    set volume_l = p_delivered_volume, purchase_price = v_delivered_price,
+        delivered_volume_l = p_delivered_volume, status = v_status
+    where id = p_order_id;
+
+  -- Reliquat conservé : nouvelle commande 'en_cours' pour le volume restant.
+  if not v_full and p_keep_residual then
+    insert into public.supplier_orders
+      (supplier_name, fuel, cistern_id, volume_l, purchase_price, deposit, status, order_date, parent_order_id)
+    values
+      (o.supplier_name, o.fuel, o.cistern_id, o.volume_l - p_delivered_volume,
+       o.purchase_price - v_delivered_price, 0, 'en_cours', current_date, o.id);
+  end if;
+
   perform public.snapshot_capital();
 end $$;
 

@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Filter, Receipt, Trash2, ChevronDown, LayoutList, Rows3 } from 'lucide-react';
+import { Search, Filter, Receipt, Trash2, ChevronDown, LayoutList, Rows3, FileDown } from 'lucide-react';
 import { Card, SectionTitle, EmptyState } from '@/components/ui';
 import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
+import { exportExpensesPDF } from '@/lib/pdf';
 import type { Currency, Expense, ExpenseCategory } from '@/types';
+
+const PERIOD_LABEL: Record<PeriodFilter, string> = { all: 'Toute période', today: "Aujourd'hui", week: 'Cette semaine', month: 'Ce mois-ci' };
+const ORIGIN_LABEL: Record<OriginFilter, string> = { all: 'Tous', rapport: 'Rapports', hors: 'Hors-rapport' };
 
 type PeriodFilter = 'all' | 'today' | 'week' | 'month';
 type OriginFilter = 'all' | 'rapport' | 'hors';
@@ -69,6 +73,12 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
 
   const totalFC = rows.reduce((s, e) => s + e.amount_fc, 0);
 
+  const exportPdf = () => exportExpensesPDF(rows, categories, {
+    period: PERIOD_LABEL[period],
+    category: catId ? (catOf(catId)?.name ?? '—') : 'Toutes',
+    origin: ORIGIN_LABEL[origin],
+  });
+
   // Synthèse : agrégats par catégorie (les filtres actifs s'appliquent).
   const byCategory = useMemo(() => {
     const map = new Map<string, { key: string; cat: ExpenseCategory | undefined; items: Expense[]; fcPart: number; usdPart: number; total: number }>();
@@ -110,9 +120,16 @@ export default function ExpensesTable({ expenses, categories, title = 'Journal d
         title={title}
         subtitle={subtitle}
         right={
-          <div className="flex rounded-xl bg-white/5 p-0.5">
-            <button onClick={() => setView('synthese')} className={`btn !py-1.5 !px-3 text-xs ${view === 'synthese' ? 'bg-energy-500 text-night-950' : 'text-slate-300'}`}><Rows3 className="h-3.5 w-3.5" /> Synthèse</button>
-            <button onClick={() => setView('liste')} className={`btn !py-1.5 !px-3 text-xs ${view === 'liste' ? 'bg-energy-500 text-night-950' : 'text-slate-300'}`}><LayoutList className="h-3.5 w-3.5" /> Liste</button>
+          <div className="flex items-center gap-2">
+            {rows.length > 0 && (
+              <button onClick={exportPdf} className="btn-ghost !py-1.5 !px-3 text-xs" title="Exporte exactement les dépenses filtrées ci-dessous">
+                <FileDown className="h-3.5 w-3.5" /> Exporter en PDF
+              </button>
+            )}
+            <div className="flex rounded-xl bg-white/5 p-0.5">
+              <button onClick={() => setView('synthese')} className={`btn !py-1.5 !px-3 text-xs ${view === 'synthese' ? 'bg-energy-500 text-night-950' : 'text-slate-300'}`}><Rows3 className="h-3.5 w-3.5" /> Synthèse</button>
+              <button onClick={() => setView('liste')} className={`btn !py-1.5 !px-3 text-xs ${view === 'liste' ? 'bg-energy-500 text-night-950' : 'text-slate-300'}`}><LayoutList className="h-3.5 w-3.5" /> Liste</button>
+            </div>
           </div>
         }
       />

@@ -168,9 +168,10 @@ export function debtRemaining(debt: Debt, payments: DebtPayment[]): number {
   return Math.max(debt.total_amount - debtPaid(debt, payments), 0);
 }
 
-/** Décaissement réel d'une commande fournisseur : acompte, ou prix total si livré. */
+/** Décaissement réel d'une commande fournisseur : acompte, ou prix (déjà
+ *  pro-raté au volume livré) si livrée totalement ou partiellement. */
 export function orderCashOut(o: SupplierOrder): number {
-  return o.status === 'livre' ? o.purchase_price : o.deposit;
+  return o.status === 'livre' || o.status === 'partielle' ? o.purchase_price : o.deposit;
 }
 
 export interface CaisseBalance {

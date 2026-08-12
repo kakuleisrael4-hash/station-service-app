@@ -147,6 +147,10 @@ export interface StationDB {
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;
   setOrderStatus(orderId: string, status: OrderStatus): Promise<void>;
+  /** Livraison totale OU partielle. `deliveredVolume` <= volume commandé.
+   *  Si partielle et `keepResidual` : le reliquat devient une nouvelle
+   *  commande 'en_cours' ; sinon il est annulé (commande clôturée à `livre`). */
+  deliverOrder(orderId: string, deliveredVolume: number, keepResidual: boolean): Promise<void>;
   /** Supprime une commande fournisseur. Si elle était LIVRÉE : rollback du stock
    *  de la citerne (volume soustrait) + recalcul du capital. */
   deleteOrder(orderId: string): Promise<void>;

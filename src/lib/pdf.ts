@@ -12,9 +12,9 @@
 //     paysage pour les clôtures) — aucun chevauchement ni débordement.
 //   • Formatage strict : « 150 000 FC », « $250.00 », « 4 250 L (SUPER) ».
 // =====================================================================
-import type { DailyClosing, Debt, DebtPayment, PompisteProfile, Report } from '@/types';
+import type { DailyClosing, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report } from '@/types';
 import { STATION, FUEL_LABEL, pumpById } from '@/constants';
-import { fc, usd, liters, fullDate } from './format';
+import { fc, usd, liters, fullDate, shortDate } from './format';
 import { debtPaid, debtRemaining, payrollOf } from './selectors';
 
 const GREEN: [number, number, number] = [16, 185, 129];
@@ -83,6 +83,29 @@ function finalize(doc: any, meta: DocMeta) {
 
 /** Volume + unité + carburant : « 4 250 L (SUPER) ». */
 const vol = (l: number, fuel?: 'super' | 'gasoil') => `${liters(l)}${fuel ? ` (${FUEL_LABEL[fuel].toUpperCase()})` : ''}`;
+
+/** Encadré de synthèse (N valeurs réparties en colonnes égales). Renvoie le Y
+ *  suivant, insécable (hauteur fixe, toujours placé sous l'en-tête page 1). */
+function summaryBox(doc: any, y: number, items: { label: string; value: string; color?: [number, number, number] }[]): number {
+  const w = doc.internal.pageSize.getWidth();
+  const boxW = w - MARGIN * 2;
+  const h = 22;
+  doc.setFillColor(...DARK);
+  doc.roundedRect(MARGIN, y, boxW, h, 2, 2, 'F');
+  const colW = boxW / items.length;
+  items.forEach((it, i) => {
+    const cx = MARGIN + colW * i + colW / 2;
+    doc.setTextColor(170, 170, 170);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(it.label, cx, y + 8, { align: 'center' });
+    doc.setTextColor(...(it.color ?? GREEN));
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(it.value, cx, y + 17, { align: 'center' });
+  });
+  return y + h;
+}
 
 // =====================================================================
 //  RAPPORT JOURNALIER D'UN POMPISTE (A4 portrait — 182 mm utiles)
@@ -316,4 +339,62 @@ export async function exportDebtsPDF(debts: Debt[], payments: DebtPayment[]) {
 
   finalize(doc, meta);
   doc.save(`registre_dettes_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+// =====================================================================
+//  REGISTRE DES DÉPENSES (A4 portrait — 22+24+30+50+18+20+18 = 182)
+//  Exporte EXACTEMENT les lignes déjà filtrées à l'écran (rows) — jamais
+//  la totalité des dépenses en base.
+// =====================================================================
+export async function exportExpensesPDF(
+  rows: Expense[],
+  categories: ExpenseCategory[],
+  filters: { period: string; category: string; origin: string },
+) {
+  const meta: DocMeta = { title: 'REGISTRE DES SORTIES DE CAISSE', subtitle: `${rows.length} dépense${rows.length > 1 ? 's' : ''}` };
+  const { doc, autoTable } = await newDoc('p');
+  const catName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? 'Sans catégorie';
+
+  // Rappel des filtres actifs (Période / Catégorie / Origine) sous l'en-tête.
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(90);
+  doc.text(`Période : ${filters.period}   ·   Catégorie : ${filters.category}   ·   Origine : ${filters.origin}`, MARGIN, HEADER_H + 8);
+
+  // Bloc synthèse : cumuls FC / USD / total consolidé FC des lignes exportées.
+  const cumulFC = rows.reduce((s, e) => s + (e.amount || 0), 0);
+  const cumulUSD = rows.reduce((s, e) => s + (e.amount_usd || 0), 0);
+  const totalFC = rows.reduce((s, e) => s + (e.amount_fc || 0), 0);
+  const boxBottom = summaryBox(doc, HEADER_H + 13, [
+    { label: 'CUMUL EN FC', value: fc(cumulFC) },
+    { label: 'CUMUL EN USD', value: usd(cumulUSD), color: [56, 189, 248] },
+    { label: 'TOTAL CONSOLIDÉ (FC)', value: fc(totalFC) },
+  ]);
+
+  autoTable(doc, {
+    ...baseTable(),
+    startY: boxBottom + 6,
+    head: [['Date', 'Origine', 'Catégorie', 'Description / Motif', 'USD', 'FC', 'Total FC']],
+    body: rows.map((e) => [
+      shortDate(e.date),
+      e.report_id ? 'Rapport' : 'Hors-rapport',
+      catName(e.category_id),
+      e.description || '—',
+      e.amount_usd > 0 ? usd(e.amount_usd) : '—',
+      e.amount > 0 ? fc(e.amount) : '—',
+      fc(e.amount_fc),
+    ]),
+    headStyles: { fillColor: GREEN, textColor: DARK },
+    styles: { ...baseTable().styles, fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: 22 }, 1: { cellWidth: 24 }, 2: { cellWidth: 30 }, 3: { cellWidth: 50 },
+      4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 20, halign: 'right' }, 6: { cellWidth: 18, halign: 'right' },
+    },
+    didParseCell: (d: any) => {
+      if (d.section === 'body' && d.column.index === 6) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.textColor = [225, 29, 72]; }
+    },
+  });
+
+  finalize(doc, meta);
+  doc.save(`registre_depenses_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

@@ -14,7 +14,7 @@ const money = (amount: number, currency: Currency) => (currency === 'USD' ? usd(
 type Sub = 'dettes' | 'commandes';
 
 export default function DebtsOrders() {
-  const { debts, debtPayments, supplierOrders, cisterns, settings, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, deleteOrder } = useData();
+  const { debts, debtPayments, supplierOrders, cisterns, settings, addDebt, addDebtPayment, createSupplierOrder, deliverOrder, deleteOrder } = useData();
   const [sub, setSub] = useState<Sub>('dettes');
 
   return (
@@ -27,7 +27,7 @@ export default function DebtsOrders() {
       {sub === 'dettes' ? (
         <DebtsTab debts={debts} debtPayments={debtPayments} recoverable={recoverableDebtsFC(debts, debtPayments, settings.taux_journalier)} addDebt={addDebt} addDebtPayment={addDebtPayment} />
       ) : (
-        <OrdersTab orders={supplierOrders} cisterns={cisterns} createOrder={createSupplierOrder} setStatus={setOrderStatus} deleteOrder={deleteOrder} />
+        <OrdersTab orders={supplierOrders} cisterns={cisterns} createOrder={createSupplierOrder} deliverOrder={deliverOrder} deleteOrder={deleteOrder} />
       )}
     </div>
   );
@@ -122,7 +122,7 @@ function DebtsTab({ debts, debtPayments, recoverable, addDebt, addDebtPayment }:
   );
 }
 
-function OrdersTab({ orders, cisterns, createOrder, setStatus, deleteOrder }: any) {
+function OrdersTab({ orders, cisterns, createOrder, deliverOrder, deleteOrder }: any) {
   const firstOf = (fuel: string) => cisterns.find((c: any) => c.fuel === fuel)?.id ?? '';
   const [form, setForm] = useState({ supplier_name: '', fuel: 'super', cistern_id: firstOf('super'), volume_l: '', purchase_price: '', deposit: '', order_date: todayISO() });
   const setFuel = (fuel: string) => setForm((f) => ({ ...f, fuel, cistern_id: firstOf(fuel) }));
@@ -130,18 +130,38 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus, deleteOrder }: an
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function deliver(id: string) {
+  // ---- Réception d'une commande (livraison totale ou partielle) ----
+  const [deliverFor, setDeliverFor] = useState<any>(null);
+  const [deliveredVol, setDeliveredVol] = useState('');
+  const [deliverBusy, setDeliverBusy] = useState(false);
+
+  function openDeliver(o: any) {
+    setErr(null);
+    setDeliverFor(o);
+    setDeliveredVol(String(o.volume_l));
+  }
+  function closeDeliver() { setDeliverFor(null); setDeliveredVol(''); }
+
+  const deliveredNum = parseFloat(deliveredVol);
+  const isValidDelivery = deliverFor && Number.isFinite(deliveredNum) && deliveredNum > 0 && deliveredNum <= deliverFor.volume_l;
+  const isFullDelivery = isValidDelivery && deliveredNum >= deliverFor.volume_l;
+  const remainingVol = deliverFor && isValidDelivery ? deliverFor.volume_l - deliveredNum : 0;
+
+  async function confirmDelivery(keepResidual: boolean) {
+    if (!deliverFor || !isValidDelivery) return;
+    setDeliverBusy(true);
     setErr(null);
     try {
-      await setStatus(id, 'livre');
+      await deliverOrder(deliverFor.id, deliveredNum, keepResidual);
+      closeDeliver();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Livraison impossible.');
-    }
+    } finally { setDeliverBusy(false); }
   }
 
   async function remove(o: any, citName: string) {
-    const msg = o.status === 'livre'
-      ? `⚠ Cette commande a été LIVRÉE : sa suppression va soustraire ${o.volume_l.toLocaleString('fr-FR')} L du stock de ${citName} et retirer sa valeur du Capital. Continuer ?`
+    const msg = o.status === 'livre' || o.status === 'partielle'
+      ? `⚠ Cette commande a été LIVRÉE (au moins partiellement) : sa suppression va soustraire ${o.volume_l.toLocaleString('fr-FR')} L du stock de ${citName} et retirer sa valeur du Capital. Continuer ?`
       : `Supprimer la commande « ${o.supplier_name} » (en cours) ? L'acompte sera retiré du calcul de la caisse.`;
     if (!window.confirm(msg)) return;
     setErr(null);
@@ -223,11 +243,16 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus, deleteOrder }: an
                       <td className="py-2 text-right tabular-nums">{liters(o.volume_l)}</td>
                       <td className="py-2 text-right tabular-nums">{fc(o.purchase_price)}</td>
                       <td className="py-2 text-right tabular-nums">{fc(o.deposit)}</td>
-                      <td className="py-2"><span className={`chip ${o.status === 'livre' ? 'bg-energy-500/15 text-energy-300' : 'bg-fuel-500/15 text-fuel-300'}`}>{o.status === 'livre' ? <><CheckCircle2 className="h-3 w-3" /> Livré</> : <><Clock className="h-3 w-3" /> En cours</>}</span></td>
+                      <td className="py-2">
+                        <span className={`chip ${o.status === 'livre' ? 'bg-energy-500/15 text-energy-300' : o.status === 'partielle' ? 'bg-amber-500/15 text-amber-300' : 'bg-fuel-500/15 text-fuel-300'}`}>
+                          {o.status === 'livre' ? <><CheckCircle2 className="h-3 w-3" /> Livré</> : o.status === 'partielle' ? <><CheckCircle2 className="h-3 w-3" /> Partielle</> : <><Clock className="h-3 w-3" /> En cours</>}
+                        </span>
+                        {(o.delivered_volume_l ?? 0) > 0 && o.status !== 'en_cours' && <p className="mt-0.5 text-[10px] text-slate-500">{liters(o.delivered_volume_l)} déchargés</p>}
+                      </td>
                       <td className="py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {o.status === 'en_cours' && <button onClick={() => deliver(o.id)} className="btn-ghost !py-1.5 !px-3 text-energy-300"><CheckCircle2 className="h-4 w-4" /> Marquer livré</button>}
-                          <button onClick={() => remove(o, cit?.name ?? o.cistern_id)} className="text-slate-400 hover:text-rose-400 p-1.5" title={o.status === 'livre' ? 'Supprimer (rollback du stock de la citerne)' : 'Supprimer la commande'}><Trash2 className="h-4 w-4" /></button>
+                          {o.status === 'en_cours' && <button onClick={() => openDeliver(o)} className="btn-ghost !py-1.5 !px-3 text-energy-300"><CheckCircle2 className="h-4 w-4" /> Marquer livré</button>}
+                          <button onClick={() => remove(o, cit?.name ?? o.cistern_id)} className="text-slate-400 hover:text-rose-400 p-1.5" title={o.status !== 'en_cours' ? 'Supprimer (rollback du stock de la citerne)' : 'Supprimer la commande'}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -238,6 +263,45 @@ function OrdersTab({ orders, cisterns, createOrder, setStatus, deleteOrder }: an
           </div>
         )}
       </Card>
+
+      <Modal open={!!deliverFor} onClose={closeDeliver} title={`Réception — ${deliverFor?.supplier_name ?? ''}`}>
+        {deliverFor && (
+          <>
+            <p className="mb-3 text-sm text-slate-400">
+              Quantité commandée : <span className="font-semibold text-slate-200">{liters(deliverFor.volume_l)}</span>
+              {' '}({FUEL_LABEL[deliverFor.fuel as FuelType].toUpperCase()})
+            </p>
+            <label className="label">Quantité réellement déchargée (L)</label>
+            <input type="number" className="field" value={deliveredVol} onChange={(e) => setDeliveredVol(e.target.value)} autoFocus />
+            {!isValidDelivery && deliveredVol !== '' && (
+              <p className="mt-1 text-xs text-rose-400">Doit être supérieure à 0 et ne pas dépasser la quantité commandée.</p>
+            )}
+
+            {isValidDelivery && isFullDelivery && (
+              <button onClick={() => confirmDelivery(false)} disabled={deliverBusy} className="btn-primary mt-4 w-full">
+                {deliverBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Confirmer la livraison complète
+              </button>
+            )}
+
+            {isValidDelivery && !isFullDelivery && (
+              <>
+                <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-300 ring-1 ring-amber-500/30">
+                  Livraison partielle : reliquat de <span className="font-semibold">{liters(remainingVol)}</span> non déchargé. Que faire du reste de la commande ?
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button onClick={() => confirmDelivery(false)} disabled={deliverBusy} className="btn bg-white/5 text-slate-200 hover:bg-white/10">
+                    {deliverBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Solder la commande
+                  </button>
+                  <button onClick={() => confirmDelivery(true)} disabled={deliverBusy} className="btn-primary">
+                    {deliverBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Conserver le reliquat
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500">« Solder » annule le reste. « Conserver » crée une nouvelle commande « en cours » pour {liters(remainingVol)}.</p>
+              </>
+            )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }

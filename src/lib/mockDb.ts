@@ -383,12 +383,53 @@ export const mockDb: StationDB = {
     emit();
   },
 
+  async deliverOrder(orderId, deliveredVolume, keepResidual) {
+    const o = store.supplierOrders.find((x) => x.id === orderId);
+    if (!o) throw new Error('Commande introuvable.');
+    if (o.status !== 'en_cours') throw new Error('Cette commande a déjà été traitée.');
+    if (!Number.isFinite(deliveredVolume) || deliveredVolume <= 0) throw new Error('Quantité livrée invalide.');
+    if (deliveredVolume > o.volume_l) throw new Error(`La quantité livrée (${deliveredVolume.toLocaleString('fr-FR')} L) ne peut pas dépasser la quantité commandée (${o.volume_l.toLocaleString('fr-FR')} L).`);
+
+    const cit = store.cisterns.find((x) => x.id === o.cistern_id);
+    if (cit && cit.current_l + deliveredVolume > cit.capacity_l) {
+      const dispo = Math.max(cit.capacity_l - cit.current_l, 0);
+      throw new Error(`Livraison impossible : dépasse la capacité de ${cit.name}. Espace disponible : ${Math.round(dispo).toLocaleString('fr-FR')} L (déchargé : ${deliveredVolume.toLocaleString('fr-FR')} L).`);
+    }
+
+    const unitPrice = o.volume_l > 0 ? o.purchase_price / o.volume_l : 0;
+    const deliveredPrice = Math.round(unitPrice * deliveredVolume * 100) / 100;
+    const full = deliveredVolume >= o.volume_l;
+    const remainingVolume = o.volume_l - deliveredVolume;
+    const remainingPrice = o.purchase_price - deliveredPrice;
+
+    // Réduit la commande au volume réellement livré + pro-rate son prix.
+    o.volume_l = deliveredVolume;
+    o.purchase_price = deliveredPrice;
+    o.delivered_volume_l = deliveredVolume;
+    o.status = full ? 'livre' : keepResidual ? 'partielle' : 'livre';
+    o.delivered_at = new Date().toISOString();
+
+    if (cit) {
+      cit.current_l = cit.current_l + deliveredVolume;
+      cit.updated_at = new Date().toISOString();
+      store.fuelMovements = [{ id: uid(), cistern_id: o.cistern_id, kind: 'entree', volume_l: deliveredVolume, source: 'livraison', ref_id: o.id, label: `Livraison ${o.supplier_name}`, created_at: new Date().toISOString() }, ...store.fuelMovements];
+    }
+
+    // Reliquat conservé : nouvelle commande 'en_cours' pour le volume restant.
+    if (!full && keepResidual) {
+      store.supplierOrders = [{ id: uid(), supplier_name: o.supplier_name, fuel: o.fuel, cistern_id: o.cistern_id, volume_l: remainingVolume, purchase_price: remainingPrice, deposit: 0, status: 'en_cours', order_date: new Date().toISOString().slice(0, 10), delivered_at: null, delivered_volume_l: 0, parent_order_id: o.id }, ...store.supplierOrders];
+    }
+
+    snapshotCapital();
+    emit();
+  },
+
   async deleteOrder(orderId) {
     const o = store.supplierOrders.find((x) => x.id === orderId);
     if (!o) return;
-    // Rollback stock : une commande LIVRÉE avait injecté son volume dans la
-    // citerne -> on le soustrait (physique + théorique) et on retire le mouvement.
-    if (o.status === 'livre') {
+    // Rollback stock : une commande LIVRÉE (totale ou partielle) avait injecté
+    // son volume dans la citerne -> on le soustrait et on retire le mouvement.
+    if (o.status === 'livre' || o.status === 'partielle') {
       const cit = store.cisterns.find((c) => c.id === o.cistern_id);
       if (cit) {
         cit.current_l = Math.max(0, cit.current_l - o.volume_l);
