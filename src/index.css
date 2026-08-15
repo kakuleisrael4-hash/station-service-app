@@ -7,26 +7,33 @@
 /* =====================================================================
    THÈME : variables "R G B" (sans virgules) consommées par tailwind.config.js
    via withOpacity() -> supporte les modificateurs d'opacité (bg-night-900/40).
-   :root = Mode Sombre par défaut, valeurs identiques à l'ancienne charte figée
-   (aucune régression visuelle). [data-theme="light"] = Mode Clair SaaS Premium.
+   :root = Mode Sombre « Midnight Slate Premium » (v2, refonte lisibilité/
+   confort visuel — jamais de noir pur #000, jamais de blanc pur #fff).
+   [data-theme="light"] = Mode Clair SaaS Premium (inchangé par cette refonte).
    ===================================================================== */
 :root {
   color-scheme: dark;
 
+  /* night = surfaces. 950 = fond de page (#090a0f, "Midnight Slate", PAS
+     de noir pur) ; 900 = cartes/élévation niveau 1 (slate-900) ; 800 =
+     survol/élévation niveau 2 (slate-800). */
   --color-night-50: 250 250 250;
   --color-night-100: 244 244 245;
-  --color-night-800: 24 24 28;
-  --color-night-900: 16 16 20;
-  --color-night-950: 9 9 11;
+  --color-night-800: 30 41 59;   /* slate-800 : hover / surbrillance */
+  --color-night-900: 15 23 42;   /* slate-900 : fond des cartes */
+  --color-night-950: 9 10 15;    /* #090a0f : fond de page */
 
+  /* slate = texte. 100 vaut ici la teinte réelle "slate-200" (#e2e8f0,
+     blanc cassé anti-éblouissement) pour le texte PRINCIPAL — jamais de
+     blanc pur. 400 = texte secondaire (déjà #94a3b8, conforme tel quel). */
   --color-slate-50: 248 250 252;
-  --color-slate-100: 241 245 249;
+  --color-slate-100: 226 232 240; /* = slate-200 réel : texte principal doux */
   --color-slate-200: 226 232 240;
   --color-slate-300: 203 213 225;
-  --color-slate-400: 148 163 184;
+  --color-slate-400: 148 163 184; /* texte secondaire (labels, dates) */
   --color-slate-500: 100 116 139;
   --color-slate-600: 71 85 105;
-  --color-slate-700: 51 65 85;
+  --color-slate-700: 51 65 85;    /* bordures d'inputs */
   --color-slate-800: 30 41 59;
   --color-slate-900: 15 23 42;
   --color-slate-950: 2 6 23;
@@ -82,15 +89,17 @@ body {
 }
 
 @layer components {
-  /* Glassmorphism : verre dépoli sombre, jamais de rectangles gris opaques */
+  /* Élévation « Stripe/Linear » : carte SOLIDE slate-900 (plus de verre
+     translucide 40% en Mode Sombre — trop proche du noir pur, peu lisible),
+     bordure fine translucide. Le Mode Clair garde son propre override plus bas. */
   .glass {
-    @apply bg-night-900/40 backdrop-blur-md border border-white/5;
+    @apply bg-night-900 border border-white/5;
   }
   .card {
     @apply glass rounded-2xl shadow-2xl;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-200
            active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-energy-400/60
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
@@ -103,15 +112,23 @@ body {
   .btn-danger {
     @apply btn bg-rose-500 text-white hover:bg-rose-400;
   }
+  /* Input Mode Sombre : fond très sombre (pas de noir pur), bordure discrète
+     slate-700, halo orange doux au focus. */
   .field {
-    @apply w-full rounded-xl bg-night-900/70 border border-white/10 px-3.5 py-2.5 text-sm text-slate-100
-           placeholder:text-slate-500 focus:outline-none focus:border-energy-400/70 focus:ring-2 focus:ring-energy-400/30 transition;
+    @apply w-full rounded-xl bg-black/20 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100
+           placeholder:text-slate-500 focus:outline-none focus:border-energy-500 focus:ring-1 focus:ring-energy-500/50 transition-colors duration-200;
   }
   .label {
     @apply block text-xs font-medium uppercase tracking-wide text-slate-400 mb-1.5;
   }
+  /* Liseré discret assorti automatiquement à la couleur de TEXTE de chaque
+     puce (soft-bg déjà en place partout : bg-couleur-500/10..15 + text-
+     couleur-300/400) -> ajoute la bordure "border-couleur-500/20" de la
+     charte sans modifier les ~25 fichiers qui posent bg/text au cas par cas.
+     color-mix() (pas de modificateur d'opacité Tailwind sur currentColor). */
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
   }
 
   /* Entrées en scène décalées : les enfants apparaissent en cascade (fade + 15px) */
@@ -145,7 +162,7 @@ body {
     background-color: rgba(255, 255, 255, 0.02);
   }
   .card table tbody tr {
-    @apply transition-colors;
+    @apply transition-colors duration-200;
   }
   .card table tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.05);
@@ -172,6 +189,7 @@ body {
   }
   .quick-action:hover {
     transform: translateY(-4px);
+    background-color: rgb(var(--color-night-800)); /* léger éclaircissement tactile (slate-800 en Sombre) */
     box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25), 0 0 28px rgba(249, 115, 22, 0.28),
       0 18px 50px -12px rgba(0, 0, 0, 0.6);
   }
