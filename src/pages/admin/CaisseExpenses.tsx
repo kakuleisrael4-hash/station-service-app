@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle, Trash2 } from 'lucide-react';
+import { Wallet, Plus, Tag, PieChart as PieIcon, Receipt, Loader2, DollarSign, Banknote, PlusCircle, Trash2, UserMinus } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState } from '@/components/ui';
 import ExpensesTable from '@/components/ExpensesTable';
 import { useData } from '@/context/DataContext';
@@ -9,7 +9,7 @@ import { fc, usd, shortDate, todayISO, currentPeriod } from '@/lib/format';
 import type { Currency } from '@/types';
 
 export default function CaisseExpenses() {
-  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, salaryPayments, settings, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addExpenseCategory, deleteExpenseCategory } = useData();
+  const { reports, expenses, expenseCategories, debtPayments, supplierOrders, cashEntries, salaryPayments, pompistes, settings, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addExpenseCategory, deleteExpenseCategory } = useData();
   const taux = settings.taux_journalier;
   const caisse = computeCaisse(reports, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
   const period = currentPeriod();
@@ -109,6 +109,34 @@ export default function CaisseExpenses() {
           </div>
         )}
       </Card>
+
+      {/* SORTIES CAISSE — SALAIRES : les paiements agents (SalaryManagement) sont déjà
+          déduits de la caisse dans computeCaisse (salaireFC/salaireUSD) ; ce bloc les
+          rend simplement VISIBLES ici comme sorties motivées, sans dupliquer de calcul. */}
+      {salaryPayments.length > 0 && (
+        <Card className="border-rose-400/20">
+          <SectionTitle icon={<UserMinus className="h-5 w-5" />} title="Sorties caisse — Salaires versés" subtitle="Paiements agents, déjà déduits de la caisse ci-dessus" />
+          <div className="max-h-48 overflow-y-auto">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-white/5">
+                {salaryPayments.slice(0, 20).map((p) => {
+                  const nom = pompistes.find((x: any) => x.id === p.pompiste_id)?.display_name ?? 'Agent supprimé';
+                  return (
+                    <tr key={p.id}>
+                      <td className="py-2 text-slate-400">{shortDate(p.date_paiement)}</td>
+                      <td className="py-2"><span className="chip bg-rose-500/15 text-rose-300">Sortie · Paiement agent</span></td>
+                      <td className="py-2 text-slate-300">Paiement agent : {nom}</td>
+                      <td className="py-2 text-right font-semibold tabular-nums text-rose-400">
+                        − {p.montant_paye_fc > 0 ? fc(p.montant_paye_fc) : ''}{p.montant_paye_fc > 0 && p.montant_paye_usd > 0 ? ' + ' : ''}{p.montant_paye_usd > 0 ? usd(p.montant_paye_usd) : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Saisie dépense hors-rapport */}

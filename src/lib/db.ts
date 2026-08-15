@@ -147,6 +147,9 @@ export interface StationDB {
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;
   setOrderStatus(orderId: string, status: OrderStatus): Promise<void>;
+  /** Petite livraison express : injecte directement du carburant dans une
+   *  citerne (sans bookkeeping fournisseur/commande — arrivages mineurs). */
+  quickDelivery(cisternId: string, volumeL: number, motif: string): Promise<void>;
   /** Livraison totale OU partielle. `deliveredVolume` <= volume commandé.
    *  Si partielle et `keepResidual` : le reliquat devient une nouvelle
    *  commande 'en_cours' ; sinon il est annulé (commande clôturée à `livre`). */

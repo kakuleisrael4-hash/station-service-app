@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Droplets, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, ClipboardCheck, Scale, Loader2 } from 'lucide-react';
-import { Card, SectionTitle, Gauge, StatCard, EmptyState } from '@/components/ui';
+import { Droplets, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, ClipboardCheck, Scale, Loader2, Zap } from 'lucide-react';
+import { Card, SectionTitle, Gauge, StatCard, EmptyState, Modal } from '@/components/ui';
 import { useData } from '@/context/DataContext';
 import { stockValue } from '@/lib/selectors';
-import { CRITICAL_STOCK_PCT } from '@/constants';
+import { CRITICAL_STOCK_PCT, FUEL_LABEL } from '@/constants';
 import { fc, liters, fullDate } from '@/lib/format';
+import type { FuelType } from '@/types';
 
 export default function FuelStockManagement({ canEdit = false }: { canEdit?: boolean }) {
-  const { cisterns, fuelMovements, stockLogs, addStockLog } = useData();
+  const { cisterns, fuelMovements, stockLogs, addStockLog, quickDelivery } = useData();
   const critical = cisterns.filter((c) => (c.current_l / c.capacity_l) * 100 < CRITICAL_STOCK_PCT);
   const totalL = cisterns.reduce((s, c) => s + c.current_l, 0);
 
@@ -28,6 +29,35 @@ export default function FuelStockManagement({ canEdit = false }: { canEdit?: boo
     } finally { setBusy(null); }
   }
 
+  // ---- Petite livraison express (sans commande fournisseur) ----
+  const firstOf = (fuel: FuelType) => cisterns.find((c) => c.fuel === fuel)?.id ?? '';
+  const [expressOpen, setExpressOpen] = useState(false);
+  const [expressFuel, setExpressFuel] = useState<FuelType>('gasoil');
+  const [expressCistern, setExpressCistern] = useState(firstOf('gasoil'));
+  const [expressVol, setExpressVol] = useState('');
+  const [expressMotif, setExpressMotif] = useState('');
+  const [expressBusy, setExpressBusy] = useState(false);
+  const [expressErr, setExpressErr] = useState<string | null>(null);
+  const expressCisterns = cisterns.filter((c) => c.fuel === expressFuel);
+
+  function openExpress() {
+    setExpressOpen(true); setExpressFuel('gasoil'); setExpressCistern(firstOf('gasoil'));
+    setExpressVol(''); setExpressMotif(''); setExpressErr(null);
+  }
+  function setExpressFuelType(fuel: FuelType) { setExpressFuel(fuel); setExpressCistern(firstOf(fuel)); }
+
+  async function submitExpress() {
+    const vol = toNum(expressVol);
+    if (!expressCistern || !Number.isFinite(vol) || vol <= 0) return;
+    setExpressBusy(true); setExpressErr(null);
+    try {
+      await quickDelivery(expressCistern, vol, expressMotif.trim());
+      setExpressOpen(false);
+    } catch (e) {
+      setExpressErr(e instanceof Error ? e.message : 'Livraison impossible.');
+    } finally { setExpressBusy(false); }
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -41,6 +71,12 @@ export default function FuelStockManagement({ canEdit = false }: { canEdit?: boo
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>Stock critique (&lt; {CRITICAL_STOCK_PCT}%) : {critical.map((c) => c.name).join(', ')}. Planifiez une commande fournisseur.</span>
         </div>
+      )}
+
+      {canEdit && (
+        <button onClick={openExpress} className="btn-primary">
+          <Zap className="h-4 w-4" /> Petite livraison express
+        </button>
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -142,6 +178,38 @@ export default function FuelStockManagement({ canEdit = false }: { canEdit?: boo
           </div>
         )}
       </Card>
+
+      <Modal open={expressOpen} onClose={() => setExpressOpen(false)} title="Petite livraison express">
+        <p className="mb-3 text-sm text-slate-400">Petit arrivage sans commande fournisseur — le stock est incrémenté immédiatement.</p>
+
+        <label className="label">Type de carburant *</label>
+        <div className="mb-3 flex gap-2">
+          {(['gasoil', 'super'] as FuelType[]).map((fl) => (
+            <button key={fl} type="button" onClick={() => setExpressFuelType(fl)}
+              className={`btn flex-1 ${expressFuel === fl ? (fl === 'gasoil' ? 'bg-fuel-500 text-night-950 shadow-glow' : 'bg-energy-500 text-night-950 shadow-glow') : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
+              {FUEL_LABEL[fl].toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <label className="label">Citerne de destination *</label>
+        <select className="field" value={expressCistern} onChange={(e) => setExpressCistern(e.target.value)} disabled={expressFuel === 'gasoil'}>
+          {expressCisterns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <p className="mt-1 text-[11px] text-slate-500">{expressFuel === 'gasoil' ? 'Gasoil → Citerne Gasoil (imposée)' : 'Super → choisissez Citerne Super 1 ou 2'}</p>
+
+        <label className="label mt-3">Volume reçu (litres) *</label>
+        <input type="number" className="field" placeholder="Ex : 500" value={expressVol} onChange={(e) => setExpressVol(e.target.value)} autoFocus />
+
+        <label className="label mt-3">Motif (optionnel)</label>
+        <input className="field" placeholder="Ex : dépannage local, bidons d'appoint…" value={expressMotif} onChange={(e) => setExpressMotif(e.target.value)} />
+
+        {expressErr && <p className="mt-2 text-sm text-rose-400">{expressErr}</p>}
+
+        <button onClick={submitExpress} disabled={expressBusy || !expressCistern || !(toNum(expressVol) > 0)} className="btn-primary mt-4 w-full">
+          {expressBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Enregistrer la livraison
+        </button>
+      </Modal>
     </div>
   );
 }

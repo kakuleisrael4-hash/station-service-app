@@ -2,6 +2,13 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Applique le thème persisté AVANT le premier paint (évite le flash).
+      try {
+        var t = localStorage.getItem('kkcoil.theme');
+        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta

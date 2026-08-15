@@ -1,4 +1,18 @@
 /** @type {import('tailwindcss').Config} */
+
+// Couleurs pilotées par variable CSS (--<nom>: "R G B") : supporte les
+// modificateurs d'opacité Tailwind (bg-night-900/40) ET permet au Mode
+// Clair de re-teinter TOUTE l'app en changeant seulement les variables
+// dans index.css — zéro modification des ~25 fichiers de vues.
+function withOpacity(varName) {
+  // Syntaxe CSS Color 4 : la variable contient "R G B" (espaces, pas de
+  // virgules) -> rgb(var(--x) / alpha). "rgba(var(--x), alpha)" est INVALIDE
+  // (rgba() attend 4 arguments séparés par des virgules, pas un triplet +
+  // une alpha) et fait silencieusement échouer toute la déclaration CSS.
+  return ({ opacityValue }) =>
+    opacityValue !== undefined ? `rgb(var(${varName}) / ${opacityValue})` : `rgb(var(${varName}))`;
+}
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
@@ -6,12 +20,27 @@ export default {
       colors: {
         // Charte « Dark Glass-Orange » : noir zinc profond + orange néon (Cyber-Amber).
         // Tokens conservés (night/energy/fuel) -> re-brand global sans toucher aux vues.
+        // night + slate sont var-ifiés (voir index.css) pour porter le Mode Clair ;
+        // les valeurs par défaut (:root) sont pixel-identiques à l'ancien thème sombre.
         night: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          800: '#18181c',
-          900: '#101014',
-          950: '#09090b', // zinc-950 (Dark Space)
+          50: withOpacity('--color-night-50'),
+          100: withOpacity('--color-night-100'),
+          800: withOpacity('--color-night-800'),
+          900: withOpacity('--color-night-900'),
+          950: withOpacity('--color-night-950'),
+        },
+        slate: {
+          50: withOpacity('--color-slate-50'),
+          100: withOpacity('--color-slate-100'),
+          200: withOpacity('--color-slate-200'),
+          300: withOpacity('--color-slate-300'),
+          400: withOpacity('--color-slate-400'),
+          500: withOpacity('--color-slate-500'),
+          600: withOpacity('--color-slate-600'),
+          700: withOpacity('--color-slate-700'),
+          800: withOpacity('--color-slate-800'),
+          900: withOpacity('--color-slate-900'),
+          950: withOpacity('--color-slate-950'),
         },
         energy: {
           // « Le Feu Sacré » — orange vif #f97316

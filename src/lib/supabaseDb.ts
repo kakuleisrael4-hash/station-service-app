@@ -303,6 +303,10 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.rpc('deliver_order', { p_order_id: orderId, p_delivered_volume: deliveredVolume, p_keep_residual: keepResidual });
       if (error) throw new Error(error.message);
     },
+    async quickDelivery(cisternId, volumeL, motif) {
+      const { error } = await sb.rpc('quick_delivery', { p_cistern_id: cisternId, p_volume: volumeL, p_motif: motif });
+      if (error) throw new Error(error.message);
+    },
     async addStockLog(cisternId, physicalL, note, adjust) {
       const { data: cit } = await sb.from('cisterns').select('current_l').eq('id', cisternId).single();
       const theoretical = n(cit?.current_l);

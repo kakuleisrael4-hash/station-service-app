@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database, Trash2, AlertTriangle, Moon, Sun } from 'lucide-react';
 import { Card, SectionTitle, Modal } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { liters } from '@/lib/format';
+import { useTheme } from '@/lib/theme';
 import type { Cistern, PompisteProfile, Role } from '@/types';
 
 const ROLES: Role[] = ['admin', 'pompiste', 'viewer'];
@@ -75,10 +76,26 @@ export default function SettingsPanel() {
   // --- Catégories ---
   const [cat, setCat] = useState({ name: '', color: '#f97316' });
 
+  // --- Thème d'affichage ---
+  const { theme, setTheme } = useTheme();
+
   return (
     <div className="space-y-5">
       <Card>
         <SectionTitle icon={<SettingsIcon className="h-5 w-5" />} title="Paramètres global" subtitle="Panneau de configuration maître — modifiez toutes les informations de l'application" />
+      </Card>
+
+      {/* PRÉFÉRENCES D'AFFICHAGE — bascule Mode Sombre / Mode Clair */}
+      <Card>
+        <SectionTitle icon={theme === 'light' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />} title="Préférences d'affichage" subtitle="Mémorisé sur cet appareil (navigateur)" />
+        <div className="flex rounded-xl bg-white/5 p-1 sm:w-80">
+          <button onClick={() => setTheme('dark')} className={`btn flex-1 !py-2 ${theme === 'dark' ? 'bg-energy-500 text-night-950 shadow-glow' : 'bg-transparent text-slate-300 hover:bg-white/5'}`}>
+            <Moon className="h-4 w-4" /> Mode Sombre
+          </button>
+          <button onClick={() => setTheme('light')} className={`btn flex-1 !py-2 ${theme === 'light' ? 'bg-energy-500 text-night-950 shadow-glow' : 'bg-transparent text-slate-300 hover:bg-white/5'}`}>
+            <Sun className="h-4 w-4" /> Mode Clair
+          </button>
+        </div>
       </Card>
 
       {/* PRIX & TAUX */}

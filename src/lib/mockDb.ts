@@ -424,6 +424,22 @@ export const mockDb: StationDB = {
     emit();
   },
 
+  async quickDelivery(cisternId, volumeL, motif) {
+    if (!Number.isFinite(volumeL) || volumeL <= 0) throw new Error('Volume invalide.');
+    const cit = store.cisterns.find((x) => x.id === cisternId);
+    if (!cit) throw new Error('Citerne introuvable.');
+    if (cit.current_l + volumeL > cit.capacity_l) {
+      const dispo = Math.max(cit.capacity_l - cit.current_l, 0);
+      throw new Error(`Livraison impossible : dépasse la capacité de ${cit.name}. Espace disponible : ${Math.round(dispo).toLocaleString('fr-FR')} L (livraison : ${volumeL.toLocaleString('fr-FR')} L).`);
+    }
+    cit.current_l = cit.current_l + volumeL;
+    cit.updated_at = new Date().toISOString();
+    const label = motif.trim() ? `Livraison express — ${motif.trim()}` : 'Livraison express';
+    store.fuelMovements = [{ id: uid(), cistern_id: cisternId, kind: 'entree', volume_l: volumeL, source: 'livraison', ref_id: null, label, created_at: new Date().toISOString() }, ...store.fuelMovements];
+    snapshotCapital();
+    emit();
+  },
+
   async deleteOrder(orderId) {
     const o = store.supplierOrders.find((x) => x.id === orderId);
     if (!o) return;

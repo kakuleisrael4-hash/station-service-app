@@ -4,8 +4,57 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =====================================================================
+   THÈME : variables "R G B" (sans virgules) consommées par tailwind.config.js
+   via withOpacity() -> supporte les modificateurs d'opacité (bg-night-900/40).
+   :root = Mode Sombre par défaut, valeurs identiques à l'ancienne charte figée
+   (aucune régression visuelle). [data-theme="light"] = Mode Clair SaaS Premium.
+   ===================================================================== */
 :root {
   color-scheme: dark;
+
+  --color-night-50: 250 250 250;
+  --color-night-100: 244 244 245;
+  --color-night-800: 24 24 28;
+  --color-night-900: 16 16 20;
+  --color-night-950: 9 9 11;
+
+  --color-slate-50: 248 250 252;
+  --color-slate-100: 241 245 249;
+  --color-slate-200: 226 232 240;
+  --color-slate-300: 203 213 225;
+  --color-slate-400: 148 163 184;
+  --color-slate-500: 100 116 139;
+  --color-slate-600: 71 85 105;
+  --color-slate-700: 51 65 85;
+  --color-slate-800: 30 41 59;
+  --color-slate-900: 15 23 42;
+  --color-slate-950: 2 6 23;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* night = surfaces (fond de page / cartes) */
+  --color-night-50: 250 250 250;
+  --color-night-100: 244 244 245;
+  --color-night-800: 241 245 249;  /* survol / bordure douce */
+  --color-night-900: 255 255 255; /* cartes : blanc pur */
+  --color-night-950: 248 250 252; /* fond de page : gris très clair */
+
+  /* slate = texte, inversion sémantique de la rampe (100->primaire foncé,
+     400->secondaire gris moyen, cf. spec "text-slate-800" / "text-slate-500") */
+  --color-slate-50: 15 23 42;
+  --color-slate-100: 30 41 59;
+  --color-slate-200: 51 65 85;
+  --color-slate-300: 71 85 105;
+  --color-slate-400: 100 116 139;
+  --color-slate-500: 148 163 184;
+  --color-slate-600: 203 213 225;
+  --color-slate-700: 226 232 240;
+  --color-slate-800: 241 245 249;
+  --color-slate-900: 248 250 252;
+  --color-slate-950: 15 23 42;
 }
 
 html,
@@ -15,7 +64,9 @@ body,
 }
 
 body {
-  /* « Dark Space » : zinc-950 + cercles de lumière radiale orange floutés (mesh) */
+  /* « Dark Space » : zinc-950 + cercles de lumière radiale orange floutés (mesh).
+     En Mode Clair, night-950/text-slate-100 basculent via les variables CSS
+     (:root vs [data-theme=light]) — cette règle reste identique dans les 2 thèmes. */
   @apply bg-night-950 text-slate-100 font-sans antialiased;
   background-image:
     radial-gradient(55rem 55rem at 85% -12%, rgba(249, 115, 22, 0.07), transparent 60%),
@@ -23,11 +74,17 @@ body {
     radial-gradient(40rem 40rem at 55% 115%, rgba(251, 146, 60, 0.05), transparent 55%);
   background-attachment: fixed;
 }
+[data-theme='light'] body {
+  background-image:
+    radial-gradient(55rem 55rem at 85% -12%, rgba(249, 115, 22, 0.05), transparent 60%),
+    radial-gradient(45rem 45rem at -12% 25%, rgba(249, 115, 22, 0.035), transparent 55%),
+    radial-gradient(40rem 40rem at 55% 115%, rgba(251, 146, 60, 0.03), transparent 55%);
+}
 
 @layer components {
   /* Glassmorphism : verre dépoli sombre, jamais de rectangles gris opaques */
   .glass {
-    @apply bg-zinc-900/40 backdrop-blur-md border border-white/5;
+    @apply bg-night-900/40 backdrop-blur-md border border-white/5;
   }
   .card {
     @apply glass rounded-2xl shadow-2xl;
@@ -71,7 +128,7 @@ body {
 
   /* Squelette de chargement : vague lumineuse diagonale sur verre translucide */
   .skeleton {
-    @apply rounded-2xl bg-zinc-900/40 border border-white/5;
+    @apply rounded-2xl bg-night-900/40 border border-white/5;
     background-image: linear-gradient(
       105deg,
       transparent 40%,
@@ -93,11 +150,17 @@ body {
   .card table tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.05);
   }
+  [data-theme='light'] .card table tbody tr:nth-child(even) {
+    background-color: rgba(15, 23, 42, 0.02);
+  }
+  [data-theme='light'] .card table tbody tr:hover {
+    background-color: rgba(15, 23, 42, 0.035);
+  }
 
   /* Puce de filtre cliquable (remplace les menus déroulants) */
   .chip-filter {
     @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer
-           bg-white/5 text-zinc-400 ring-1 ring-white/10 hover:bg-white/10 hover:text-white active:scale-95;
+           bg-white/5 text-slate-400 ring-1 ring-white/10 hover:bg-white/10 hover:text-white active:scale-95;
   }
   .chip-filter-on {
     @apply bg-energy-500/15 text-energy-300 ring-energy-400/50 shadow-[0_0_14px_rgba(249,115,22,0.25)];
@@ -112,6 +175,56 @@ body {
     box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25), 0 0 28px rgba(249, 115, 22, 0.28),
       0 18px 50px -12px rgba(0, 0, 0, 0.6);
   }
+
+  /* =====================================================================
+     MODE CLAIR — « Dashboard SaaS Premium ». Les tokens night/slate (ci-
+     dessus) repeignent déjà fonds + texte partout ; ces overrides ciblés
+     ajustent la STRUCTURE (verre translucide -> carte opaque + ombre douce)
+     que la seule substitution de couleur ne peut pas reproduire.
+     ===================================================================== */
+  /* NOTE : slate-200/slate-100/slate-500 ci-dessous seraient les mauvaises
+     nuances ici — ce sont déjà des tokens INVERSÉS pour le texte (slate-200
+     devient une teinte FONCÉE en Mode Clair, cf. :root[data-theme=light] plus
+     haut). Pour un fond/bordure clair explicite, on utilise du hex littéral. */
+  [data-theme='light'] .glass {
+    @apply bg-night-900 backdrop-blur-none;
+    border-color: #e2e8f0;
+  }
+  [data-theme='light'] .card {
+    @apply shadow-sm;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.07);
+  }
+  [data-theme='light'] .field {
+    @apply bg-night-900 text-slate-100 placeholder:text-slate-500;
+    border-color: #e2e8f0;
+  }
+  [data-theme='light'] .btn-ghost {
+    @apply bg-night-900 text-slate-200;
+    border-color: #e2e8f0;
+  }
+  [data-theme='light'] .btn-ghost:hover {
+    background-color: #f8fafc;
+  }
+  [data-theme='light'] .skeleton {
+    background-color: #f1f5f9;
+    border-color: #e2e8f0;
+  }
+  [data-theme='light'] .chip-filter {
+    background-color: #f1f5f9;
+    color: #64748b;
+    box-shadow: inset 0 0 0 1px #e2e8f0;
+  }
+  [data-theme='light'] .chip-filter:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+  }
+  [data-theme='light'] .chip-filter-on {
+    @apply text-energy-600;
+  }
+  [data-theme='light'] .quick-action:hover {
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.25), 0 0 20px rgba(249, 115, 22, 0.15),
+      0 18px 40px -15px rgba(15, 23, 42, 0.15);
+  }
 }
 
 /* Scrollbar discrète */
@@ -124,4 +237,19 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-white/20;
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Filet de sécurité Mode Clair (règle NON @layer -> prioritaire sur les
+   utilitaires Tailwind quel que soit l'ordre de spécificité, cf. CSS Cascade
+   Layers). `text-night-950` sert de TEXTE FONCÉ sur fond vif (boutons/chips
+   énergie·fuel) dans ~18 fichiers ; il ne doit jamais suivre l'inversion de
+   `night-950` (qui devient "quasi blanc" en Mode Clair pour les FONDS). */
+[data-theme='light'] [class*='text-night-950'] {
+  color: #1e293b;
 }
