@@ -28,6 +28,7 @@ alter table public.debts               enable row level security;
 alter table public.debt_payments       enable row level security;
 alter table public.supplier_orders     enable row level security;
 alter table public.cash_entries        enable row level security;
+alter table public.currency_exchanges  enable row level security;
 alter table public.daily_closings      enable row level security;
 alter table public.capital_history     enable row level security;
 alter table public.stock_logs          enable row level security;
@@ -61,6 +62,7 @@ create policy cat_read on public.expense_categories for select using (public.is_
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
 create policy exp_read on public.expenses for select using (public.is_staff());
 create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
+create policy exchange_admin on public.currency_exchanges for all using (public.is_admin()) with check (public.is_admin());
 -- CLÔTURES : admin écrit, admin+viewer lisent
 create policy closing_read on public.daily_closings for select using (public.is_staff());
 create policy closing_admin on public.daily_closings for all using (public.is_admin()) with check (public.is_admin());
@@ -131,5 +133,5 @@ do $$ begin
     public.pompiste_profiles, public.debts, public.supplier_orders,
     public.capital_history, public.fuel_movements, public.notifications,
     public.announcements, public.stock_logs, public.settings, public.landing_page_content,
-    public.cash_entries, public.daily_closings, public.salary_payments;
+    public.cash_entries, public.currency_exchanges, public.daily_closings, public.salary_payments;
 exception when others then null; end $$;

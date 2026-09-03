@@ -14,7 +14,7 @@ import { computeCapital } from './selectors';
 import { fileToDataUrl, fileToRawDataUrl } from './files';
 import { currentPeriod, monthLabel, todayISO } from './format';
 import { CISTERNS_DEF, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_LANDING, DEFAULT_SETTINGS, PUMPS } from '@/constants';
-import type { NewCashInput, NewDebtInput, NewExpenseInput, NewOrderInput, NewPompisteInput, SalaryPaymentInput, StationDB, StationData } from './db';
+import type { NewCashInput, NewDebtInput, NewExchangeInput, NewExpenseInput, NewOrderInput, NewPompisteInput, SalaryPaymentInput, StationDB, StationData } from './db';
 
 const STORE_KEY = 'kkcoil.store.v13';
 const SESSION_KEY = 'kkcoil.session.v11';
@@ -58,7 +58,7 @@ function seed(): StationData {
   return {
     users, pompistes, reports: [], cisterns, pumps, fuelMovements: [],
     expenseCategories, expenses: [], debts: [], debtPayments: [], supplierOrders: [],
-    cashEntries: [], dailyClosings: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
+    cashEntries: [], currencyExchanges: [], dailyClosings: [], capitalHistory: [], stockLogs: [], announcements: [], settings, landing,
     notifications, salaryHistory: [], salaryPayments: [],
   };
 }
@@ -68,7 +68,7 @@ function seed(): StationData {
 const REQUIRED_KEYS: (keyof StationData)[] = [
   'users', 'pompistes', 'reports', 'cisterns', 'pumps', 'fuelMovements',
   'expenseCategories', 'expenses', 'debts', 'debtPayments', 'supplierOrders',
-  'cashEntries', 'dailyClosings', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory', 'salaryPayments',
+  'cashEntries', 'currencyExchanges', 'dailyClosings', 'capitalHistory', 'stockLogs', 'announcements', 'settings', 'landing', 'notifications', 'salaryHistory', 'salaryPayments',
 ];
 
 function load(): StationData {
@@ -115,7 +115,7 @@ function rollbackReportImpacts(r: Report) {
 
 /** Recalcule et upsert le point de capital du jour. */
 function snapshotCapital() {
-  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debts, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries, store.salaryPayments);
+  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries, store.salaryPayments, store.currencyExchanges);
   const date = todayISO();
   const point: CapitalPoint = { date, ...b };
   const idx = store.capitalHistory.findIndex((p) => p.date === date);
@@ -336,6 +336,19 @@ export const mockDb: StationDB = {
   async deleteCashEntry(id) {
     store.cashEntries = store.cashEntries.filter((c) => c.id !== id);
     snapshotCapital(); // rollback : retire l'apport de la caisse + recalcule le capital
+    emit();
+  },
+  async addCurrencyExchange(input: NewExchangeInput) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Montant invalide.');
+    if (!Number.isFinite(input.rate) || input.rate <= 0) throw new Error('Taux invalide.');
+    const amount_to = input.direction === 'usd_to_fc' ? input.amount * input.rate : input.amount / input.rate;
+    store.currencyExchanges = [{ id: uid(), direction: input.direction, amount: input.amount, amount_to, rate: input.rate, motif: input.motif, date: input.date, created_by: 'u-admin', created_at: new Date().toISOString() }, ...store.currencyExchanges];
+    snapshotCapital();
+    emit();
+  },
+  async deleteCurrencyExchange(id) {
+    store.currencyExchanges = store.currencyExchanges.filter((e) => e.id !== id);
+    snapshotCapital(); // rollback : annule le transfert entre compartiments
     emit();
   },
   async addDebt(input: NewDebtInput) {

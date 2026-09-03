@@ -160,6 +160,24 @@ export interface CashEntry {
   created_at?: string;
 }
 
+// -------------------- BUREAU DE CHANGE (USD ⇄ FC) ---------------------
+export type ExchangeDirection = 'usd_to_fc' | 'fc_to_usd';
+
+/** Échange de devises : transfère de l'argent d'un compartiment de caisse
+ *  à l'autre (USD -> FC ou FC -> USD) à un taux donné. `amount` = montant
+ *  dans la devise SOURCE, `amount_to` = montant obtenu dans la devise CIBLE. */
+export interface CurrencyExchange {
+  id: string;
+  direction: ExchangeDirection;
+  amount: number; // devise source
+  amount_to: number; // devise cible (= amount * rate, ou amount / rate selon le sens)
+  rate: number; // taux appliqué à CETTE opération (peut différer du taux du jour actuel)
+  motif?: string | null;
+  date: string;
+  created_by?: string | null;
+  created_at?: string;
+}
+
 // ----------------------------- DETTES --------------------------------
 export interface Debt {
   id: string;
@@ -203,7 +221,6 @@ export interface CapitalPoint {
   date: string;
   caisse: number;
   stock_value: number;
-  debts: number;
   orders_value: number; // valeur des commandes fournisseurs en cours
   capital: number;
 }

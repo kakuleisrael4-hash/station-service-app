@@ -12,7 +12,7 @@
 //     paysage pour les clôtures) — aucun chevauchement ni débordement.
 //   • Formatage strict : « 150 000 FC », « $250.00 », « 4 250 L (SUPER) ».
 // =====================================================================
-import type { DailyClosing, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report } from '@/types';
+import type { Cistern, DailyClosing, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SupplierOrder } from '@/types';
 import { STATION, FUEL_LABEL, pumpById } from '@/constants';
 import { fc, usd, liters, fullDate, shortDate } from './format';
 import { debtPaid, debtRemaining, payrollOf } from './selectors';
@@ -339,6 +339,44 @@ export async function exportDebtsPDF(debts: Debt[], payments: DebtPayment[]) {
 
   finalize(doc, meta);
   doc.save(`registre_dettes_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+// =====================================================================
+//  REGISTRE DES COMMANDES FOURNISSEURS (A4 portrait — 40+28+34+28+32+20 = 182)
+// =====================================================================
+export async function exportOrdersPDF(orders: SupplierOrder[], cisterns: Cistern[]) {
+  const meta: DocMeta = { title: 'REGISTRE DES COMMANDES', subtitle: `${orders.length} commande(s)` };
+  const { doc, autoTable } = await newDoc('p');
+  const citName = (id: string) => cisterns.find((c) => c.id === id)?.name ?? id;
+  const statusLabel = (s: string) => (s === 'livre' ? 'Livré' : s === 'partielle' ? 'Partielle' : 'En cours');
+
+  autoTable(doc, {
+    ...baseTable(),
+    startY: HEADER_H + 8,
+    head: [['Fournisseur', 'Carburant', 'Citerne', 'Volume', 'Prix', 'Statut']],
+    body: orders.map((o) => [
+      o.supplier_name,
+      FUEL_LABEL[o.fuel].toUpperCase(),
+      citName(o.cistern_id),
+      vol(o.volume_l),
+      fc(o.purchase_price),
+      statusLabel(o.status),
+    ]),
+    headStyles: { fillColor: GREEN, textColor: DARK },
+    styles: { ...baseTable().styles, fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: 40 }, 1: { cellWidth: 28 }, 2: { cellWidth: 34 },
+      3: { cellWidth: 28, halign: 'right' }, 4: { cellWidth: 32, halign: 'right' }, 5: { cellWidth: 20 },
+    },
+    didParseCell: (d: any) => {
+      if (d.section === 'body' && d.column.index === 5) {
+        d.cell.styles.textColor = d.cell.raw === 'Livré' ? GREEN : d.cell.raw === 'Partielle' ? [217, 119, 6] : [56, 189, 248];
+      }
+    },
+  });
+
+  finalize(doc, meta);
+  doc.save(`registre_commandes_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // =====================================================================

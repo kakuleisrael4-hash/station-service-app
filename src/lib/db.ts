@@ -10,10 +10,12 @@ import type {
   CapitalPoint,
   CashEntry,
   Cistern,
+  CurrencyExchange,
   DailyClosing,
   Currency,
   Debt,
   DebtPayment,
+  ExchangeDirection,
   Expense,
   ExpenseCategory,
   FuelMovement,
@@ -49,6 +51,7 @@ export interface StationData {
   debtPayments: DebtPayment[];
   supplierOrders: SupplierOrder[];
   cashEntries: CashEntry[];
+  currencyExchanges: CurrencyExchange[];
   dailyClosings: DailyClosing[];
   capitalHistory: CapitalPoint[];
   stockLogs: StockLog[];
@@ -88,6 +91,13 @@ export interface NewOrderInput {
 export interface NewCashInput {
   currency: Currency;
   amount: number;
+  motif: string;
+  date: string;
+}
+export interface NewExchangeInput {
+  direction: ExchangeDirection;
+  amount: number; // devise source
+  rate: number;
   motif: string;
   date: string;
 }
@@ -143,6 +153,11 @@ export interface StationDB {
   addCashEntry(input: NewCashInput): Promise<void>;
   /** Supprime un apport de fonds (rollback) ; réajuste caisse + capital. */
   deleteCashEntry(id: string): Promise<void>;
+  /** Bureau de change : transfère de l'argent entre les compartiments FC/USD
+   *  de la caisse (n'affecte PAS le Capital total, juste sa répartition). */
+  addCurrencyExchange(input: NewExchangeInput): Promise<void>;
+  /** Annule un échange (rollback) ; réajuste caisse. */
+  deleteCurrencyExchange(id: string): Promise<void>;
   addDebt(input: NewDebtInput): Promise<void>;
   addDebtPayment(debtId: string, amount: number, date: string): Promise<void>;
   createSupplierOrder(input: NewOrderInput): Promise<void>;

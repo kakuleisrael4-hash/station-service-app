@@ -81,7 +81,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
     async signOut() { await sb.auth.signOut(); },
 
     async loadAll(): Promise<StationData> {
-      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, closings, capital, stockLogs, announcements, settingsRow, notifs, salary, salaryPays, landingRow] =
+      const [users, pompistes, reports, readings, expenses, cisterns, pumps, movements, cats, debts, payments, orders, cash, exch, closings, capital, stockLogs, announcements, settingsRow, notifs, salary, salaryPays, landingRow] =
         await Promise.all([
           sb.from('users').select('*'),
           sb.from('pompiste_profiles').select('*').order('display_name'),
@@ -96,6 +96,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
           sb.from('debt_payments').select('*'),
           sb.from('supplier_orders').select('*').order('order_date', { ascending: false }),
           sb.from('cash_entries').select('*').order('date', { ascending: false }),
+          sb.from('currency_exchanges').select('*').order('date', { ascending: false }),
           sb.from('daily_closings').select('*').order('closed_at', { ascending: false }),
           sb.from('capital_history').select('*').order('date'),
           sb.from('stock_logs').select('*').order('created_at', { ascending: false }),
@@ -121,8 +122,9 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         debtPayments: (payments.data ?? []).map((p: any) => ({ ...p, amount: n(p.amount), currency: p.currency ?? 'FC' })) as any,
         supplierOrders: (orders.data ?? []).map((o: any) => ({ ...o, volume_l: n(o.volume_l), purchase_price: n(o.purchase_price), deposit: n(o.deposit) })) as any,
         cashEntries: (cash.data ?? []).map((c: any) => ({ ...c, amount: n(c.amount) })) as any,
+        currencyExchanges: (exch.data ?? []).map((e: any) => ({ ...e, amount: n(e.amount), amount_to: n(e.amount_to), rate: n(e.rate) })) as any,
         dailyClosings: (closings.data ?? []).map((d: any) => ({ ...d, report_ids: d.report_ids ?? [], report_count: n(d.report_count), total_super_l: n(d.total_super_l), total_gasoil_l: n(d.total_gasoil_l), total_volume_l: n(d.total_volume_l), total_encaisse: n(d.total_encaisse), total_benefice: n(d.total_benefice) })) as any,
-        capitalHistory: (capital.data ?? []).map((c: any) => ({ ...c, caisse: n(c.caisse), stock_value: n(c.stock_value), debts: n(c.debts), orders_value: n(c.orders_value), capital: n(c.capital) })) as any,
+        capitalHistory: (capital.data ?? []).map((c: any) => ({ ...c, caisse: n(c.caisse), stock_value: n(c.stock_value), orders_value: n(c.orders_value), capital: n(c.capital) })) as any,
         stockLogs: (stockLogs.data ?? []).map((l: any) => ({ ...l, theoretical_l: n(l.theoretical_l), physical_l: n(l.physical_l), ecart: n(l.ecart) })) as any,
         announcements: (announcements.data ?? []) as any,
         settings: {
@@ -282,6 +284,17 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.from('cash_entries').delete().eq('id', id);
       if (error) throw new Error(error.message);
     },
+    async addCurrencyExchange(input) {
+      if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Montant invalide.');
+      if (!Number.isFinite(input.rate) || input.rate <= 0) throw new Error('Taux invalide.');
+      const amount_to = input.direction === 'usd_to_fc' ? input.amount * input.rate : input.amount / input.rate;
+      const { error } = await sb.from('currency_exchanges').insert({ direction: input.direction, amount: input.amount, amount_to, rate: input.rate, motif: input.motif, date: input.date });
+      if (error) throw new Error(error.message);
+    },
+    async deleteCurrencyExchange(id) {
+      const { error } = await sb.from('currency_exchanges').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    },
     async addDebt(input: NewDebtInput) {
       const { error } = await sb.from('debts').insert({ ...input, status: 'en_attente' });
       if (error) throw new Error(error.message);
@@ -414,6 +427,7 @@ export function createSupabaseDb(url: string, key: string): StationDB {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'debts' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_orders' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'capital_history' }, cb)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'currency_exchanges' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'salary_payments' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, cb)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'landing_page_content' }, cb)

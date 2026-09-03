@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AppUser, Attachment, LandingContent, OrderStatus, PompisteProfile, Pump, ReportDraft, Role, Settings } from '@/types';
-import { getDb, type NewCashInput, type NewDebtInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type SalaryParts, type SalaryPaymentInput, type StationData } from '@/lib/db';
+import { getDb, type NewCashInput, type NewDebtInput, type NewExchangeInput, type NewExpenseInput, type NewOrderInput, type NewPompisteInput, type SalaryParts, type SalaryPaymentInput, type StationData } from '@/lib/db';
 import { DEFAULT_LANDING, DEFAULT_SETTINGS } from '@/constants';
 
 interface DataCtx extends StationData {
@@ -18,6 +18,8 @@ interface DataCtx extends StationData {
   deleteExpense: (id: string) => Promise<void>;
   addCashEntry: (input: NewCashInput) => Promise<void>;
   deleteCashEntry: (id: string) => Promise<void>;
+  addCurrencyExchange: (input: NewExchangeInput) => Promise<void>;
+  deleteCurrencyExchange: (id: string) => Promise<void>;
   addDebt: (input: NewDebtInput) => Promise<void>;
   addDebtPayment: (debtId: string, amount: number, date: string) => Promise<void>;
   createSupplierOrder: (input: NewOrderInput) => Promise<void>;
@@ -54,6 +56,7 @@ const EMPTY: StationData = {
   debtPayments: [],
   supplierOrders: [],
   cashEntries: [],
+  currencyExchanges: [],
   dailyClosings: [],
   capitalHistory: [],
   stockLogs: [],
@@ -133,6 +136,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteExpense = useCallback(async (id: string) => { await db.deleteExpense(id); await refresh(); }, [db, refresh]);
   const addCashEntry = useCallback(async (input: NewCashInput) => { await db.addCashEntry(input); await refresh(); }, [db, refresh]);
   const deleteCashEntry = useCallback(async (id: string) => { await db.deleteCashEntry(id); await refresh(); }, [db, refresh]);
+  const addCurrencyExchange = useCallback(async (input: NewExchangeInput) => { await db.addCurrencyExchange(input); await refresh(); }, [db, refresh]);
+  const deleteCurrencyExchange = useCallback(async (id: string) => { await db.deleteCurrencyExchange(id); await refresh(); }, [db, refresh]);
   const addDebt = useCallback(async (input: NewDebtInput) => { await db.addDebt(input); await refresh(); }, [db, refresh]);
   const addDebtPayment = useCallback(async (debtId: string, amount: number, date: string) => { await db.addDebtPayment(debtId, amount, date); await refresh(); }, [db, refresh]);
   const createSupplierOrder = useCallback(async (input: NewOrderInput) => { await db.createSupplierOrder(input); await refresh(); }, [db, refresh]);
@@ -155,7 +160,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uploadImage = useCallback((file: File) => db.uploadImage(file), [db]);
 
   return (
-    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, deleteExpenseCategory, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, deliverOrder, quickDelivery, deleteOrder, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
+    <Ctx.Provider value={{ ...data, ready, refresh, createReport, closeDay, deleteReport, deleteClosing, updateSalary, paySalary, addExpenseCategory, deleteExpenseCategory, addExpense, deleteExpense, addCashEntry, deleteCashEntry, addCurrencyExchange, deleteCurrencyExchange, addDebt, addDebtPayment, createSupplierOrder, setOrderStatus, deliverOrder, quickDelivery, deleteOrder, addStockLog, addAnnouncement, deleteAnnouncement, uploadAttachment, updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateUserRole, updateLanding, uploadImage, markNotificationRead }}>
       {children}
     </Ctx.Provider>
   );

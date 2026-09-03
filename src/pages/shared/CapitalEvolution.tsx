@@ -1,5 +1,5 @@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { TrendingUp, Wallet, Droplets, HandCoins, Landmark, Truck, DollarSign, Banknote, Fuel, Coins } from 'lucide-react';
+import { TrendingUp, Wallet, Droplets, Landmark, Truck, DollarSign, Banknote, Fuel, Coins } from 'lucide-react';
 import { Card, SectionTitle, StatCard, EmptyState, AnimatedNumber } from '@/components/ui';
 import ProfitExpensesChart from '@/components/ProfitExpensesChart';
 import { useData } from '@/context/DataContext';
@@ -7,10 +7,10 @@ import { computeCapital, capitalByCurrency, salesByFuel } from '@/lib/selectors'
 import { fc, usd, liters, shortDate, fullDate } from '@/lib/format';
 
 export default function CapitalEvolution() {
-  const { reports, cisterns, expenses, debts, debtPayments, supplierOrders, cashEntries, salaryPayments, capitalHistory, settings } = useData();
+  const { reports, cisterns, expenses, debtPayments, supplierOrders, cashEntries, currencyExchanges, salaryPayments, capitalHistory, settings } = useData();
   const taux = settings.taux_journalier;
-  const b = computeCapital(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
-  const cc = capitalByCurrency(reports, cisterns, expenses, debts, debtPayments, supplierOrders, taux, cashEntries, salaryPayments);
+  const b = computeCapital(reports, cisterns, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments, currencyExchanges);
+  const cc = capitalByCurrency(reports, cisterns, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments, currencyExchanges);
   const sales = salesByFuel(reports);
 
   // On s'assure que le dernier point reflète le capital courant calculé.
@@ -21,14 +21,14 @@ export default function CapitalEvolution() {
       <Card>
         <SectionTitle icon={<Landmark className="h-5 w-5" />} title="Évolution du Capital" subtitle="Santé financière globale de la station" />
         <div className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-slate-300 ring-1 ring-white/10">
-          <span className="font-semibold text-energy-300">Capital</span> = Caisse + Valeur Stock Carburant + Dettes Recouvrables + Commandes Fournisseurs en Cours
+          <span className="font-semibold text-energy-300">Capital</span> = Argent en Caisse + Valeur Stock Carburant + Commandes Fournisseurs en Cours
+          <span className="ml-1 text-slate-500">(hors dettes clients — suivies séparément dans l'onglet Dettes)</span>
         </div>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Caisse (physique)" value={fc(b.caisse)} icon={<Wallet className="h-4 w-4" />} accent={b.caisse < 0 ? 'text-rose-400' : 'text-slate-100'} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Argent en caisse" value={fc(b.caisse)} icon={<Wallet className="h-4 w-4" />} accent={b.caisse < 0 ? 'text-rose-400' : 'text-slate-100'} />
         <StatCard label="Valeur stock carburant" value={fc(b.stock_value)} icon={<Droplets className="h-4 w-4" />} />
-        <StatCard label="Dettes recouvrables" value={fc(b.debts)} icon={<HandCoins className="h-4 w-4" />} accent="text-fuel-400" />
         <StatCard label="Commandes en cours" value={fc(b.orders_value)} icon={<Truck className="h-4 w-4" />} accent="text-sky-400" />
         <StatCard label="CAPITAL TOTAL" value={<AnimatedNumber value={b.capital} format={fc} />} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
       </div>
@@ -42,7 +42,6 @@ export default function CapitalEvolution() {
           <p className="mb-3 text-xs text-slate-500">≈ {fc(cc.usdInFc)} au taux {taux} FC/$</p>
           <dl className="space-y-1.5 text-sm">
             <Row label="Caisse USD" value={usd(cc.usd.caisse)} />
-            <Row label="Dettes clients (USD)" value={usd(cc.usd.debts)} />
           </dl>
         </Card>
 
@@ -52,7 +51,6 @@ export default function CapitalEvolution() {
           <p className="mb-3 text-3xl font-black tabular-nums text-sky-300"><AnimatedNumber value={cc.fc.total} format={fc} /></p>
           <dl className="space-y-1.5 text-sm">
             <Row label="Caisse FC" value={fc(cc.fc.caisse)} />
-            <Row label="Dettes clients (FC)" value={fc(cc.fc.debts)} />
             <Row label="Valeur stock carburant" value={fc(cc.fc.stock)} />
             <Row label="Commandes en cours" value={fc(cc.fc.orders)} />
           </dl>

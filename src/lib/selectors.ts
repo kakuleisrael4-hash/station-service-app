@@ -2,7 +2,7 @@
 //  Sélecteurs / agrégations dérivées (purs, testables).
 // =====================================================================
 import type {
-  CashEntry, Cistern, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SalaryPayment, SupplierOrder,
+  CashEntry, Cistern, CurrencyExchange, Debt, DebtPayment, Expense, ExpenseCategory, PompisteProfile, Report, SalaryPayment, SupplierOrder,
 } from '@/types';
 import { currentPeriod } from './format';
 
@@ -182,10 +182,12 @@ export interface CaisseBalance {
 
 /**
  * Caisse à DOUBLE COMPARTIMENT (FC + USD).
- *   - FC : billets FC des ventes + remboursements FC − dépenses FC hors-rapport − fournisseurs
- *   - USD : dollars encaissés au billetage + remboursements USD − dépenses USD hors-rapport
+ *   - FC : billets FC des ventes + remboursements FC + change reçu − dépenses FC hors-rapport − fournisseurs
+ *   - USD : dollars encaissés au billetage + remboursements USD + change reçu − dépenses USD hors-rapport
  *   Total_Caisse_FC = Solde_FC + Solde_USD × Taux_du_jour.
- * (Les dépenses d'un rapport sont déjà déduites dans son billetage / total_a_remettre.)
+ * (Les dépenses d'un rapport sont déjà déduites dans son billetage / total_a_remettre.
+ *  Le bureau de change TRANSFÈRE entre compartiments — neutre sur total_fc au taux
+ *  du jour, sauf écart si le taux de l'opération diffère du taux courant.)
  */
 export function computeCaisse(
   reports: Report[],
@@ -195,6 +197,7 @@ export function computeCaisse(
   taux: number,
   cashEntries: CashEntry[] = [],
   salaryPayments: SalaryPayment[] = [],
+  exchanges: CurrencyExchange[] = [],
 ): CaisseBalance {
   // Caisse = uniquement les rapports CLÔTURÉS (reconnaissance financière à la clôture).
   const valides = reports.filter((r) => r.status === 'valide' && r.closed);
@@ -212,8 +215,13 @@ export function computeCaisse(
   // Salaires versés = décaissements de la caisse (par devise).
   const salaireFC = salaryPayments.reduce((s, p) => s + p.montant_paye_fc, 0);
   const salaireUSD = salaryPayments.reduce((s, p) => s + p.montant_paye_usd, 0);
-  const fc = salesFC + payFC + apportFC - expFC - fournisseurs - salaireFC;
-  const usd = salesUSD + payUSD + apportUSD - expUSD - salaireUSD;
+  // Bureau de change : USD->FC retire des USD et ajoute des FC (et inversement).
+  const usdToFc = exchanges.filter((e) => e.direction === 'usd_to_fc');
+  const fcToUsd = exchanges.filter((e) => e.direction === 'fc_to_usd');
+  const exchFcDelta = usdToFc.reduce((s, e) => s + e.amount_to, 0) - fcToUsd.reduce((s, e) => s + e.amount, 0);
+  const exchUsdDelta = fcToUsd.reduce((s, e) => s + e.amount_to, 0) - usdToFc.reduce((s, e) => s + e.amount, 0);
+  const fc = salesFC + payFC + apportFC + exchFcDelta - expFC - fournisseurs - salaireFC;
+  const usd = salesUSD + payUSD + apportUSD + exchUsdDelta - expUSD - salaireUSD;
   return { fc, usd, total_fc: fc + usd * taux };
 }
 
@@ -237,31 +245,31 @@ export function pendingOrdersValue(orders: SupplierOrder[]): number {
 export interface CapitalBreakdown {
   caisse: number;
   stock_value: number;
-  debts: number;
   orders_value: number;
   capital: number;
 }
 
 /**
- * Capital (FC) = Caisse (FC + USD convertis) + Valeur Stock Carburant
- *              + Dettes Recouvrables (USD converties) + Commandes Fournisseurs en cours.
+ * Capital (FC) = Argent en Caisse (FC + USD convertis) + Valeur du Stock
+ *              Carburant + Commandes Fournisseurs en cours.
+ * Les dettes clients ne sont PAS incluses : ce sont des créances (pas encore
+ * de l'argent réel) — elles sont suivies séparément dans l'onglet Dettes.
  */
 export function computeCapital(
   reports: Report[],
   cisterns: Cistern[],
   expenses: Expense[],
-  debts: Debt[],
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
   cashEntries: CashEntry[] = [],
   salaryPayments: SalaryPayment[] = [],
+  exchanges: CurrencyExchange[] = [],
 ): CapitalBreakdown {
-  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments).total_fc;
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments, exchanges).total_fc;
   const sv = stockValue(cisterns);
-  const dr = recoverableDebtsFC(debts, debtPayments, taux);
   const ov = pendingOrdersValue(orders);
-  return { caisse, stock_value: sv, debts: dr, orders_value: ov, capital: caisse + sv + dr + ov };
+  return { caisse, stock_value: sv, orders_value: ov, capital: caisse + sv + ov };
 }
 
 // =================== VENTES PAR CARBURANT (clôturées) ===============
@@ -285,17 +293,18 @@ export function salesByFuel(reports: Report[]): FuelSales {
 
 // =================== CAPITAL VENTILÉ PAR DEVISE =====================
 export interface CapitalByCurrency {
-  usd: { caisse: number; debts: number; total: number }; // natif USD
-  fc: { caisse: number; debts: number; stock: number; orders: number; total: number }; // natif FC
+  usd: { caisse: number; total: number }; // natif USD
+  fc: { caisse: number; stock: number; orders: number; total: number }; // natif FC
   taux: number;
   usdInFc: number; // total USD converti au taux
   grandTotalFc: number; // FC + USD*taux (== computeCapital.capital)
 }
 
 /**
- * Ventile le capital par devise d'origine :
- *   • Bloc USD (natif) : caisse USD + dettes clients en USD.
- *   • Bloc FC (natif)  : caisse FC + dettes clients en FC + valeur stock + commandes en cours.
+ * Ventile le capital (Caisse + Stock + Commandes — SANS les dettes, cf.
+ * computeCapital) par devise d'origine :
+ *   • Bloc USD (natif) : caisse USD.
+ *   • Bloc FC (natif)  : caisse FC + valeur stock + commandes en cours.
  *   • Grand Total FC   : Bloc FC + Bloc USD × taux.
  * (Stock & commandes fournisseurs sont libellés en FC dans le modèle de données.)
  */
@@ -303,25 +312,22 @@ export function capitalByCurrency(
   reports: Report[],
   cisterns: Cistern[],
   expenses: Expense[],
-  debts: Debt[],
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
   cashEntries: CashEntry[] = [],
   salaryPayments: SalaryPayment[] = [],
+  exchanges: CurrencyExchange[] = [],
 ): CapitalByCurrency {
-  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments);
-  const enAttente = debts.filter((d) => d.status === 'en_attente');
-  const debtsUSD = enAttente.filter((d) => d.currency === 'USD').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);
-  const debtsFC = enAttente.filter((d) => d.currency === 'FC').reduce((s, d) => s + debtRemaining(d, debtPayments), 0);
+  const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments, exchanges);
   const stock = stockValue(cisterns);
   const orders_ = pendingOrdersValue(orders);
-  const usdTotal = caisse.usd + debtsUSD;
-  const fcTotal = caisse.fc + debtsFC + stock + orders_;
+  const usdTotal = caisse.usd;
+  const fcTotal = caisse.fc + stock + orders_;
   const usdInFc = usdTotal * taux;
   return {
-    usd: { caisse: caisse.usd, debts: debtsUSD, total: usdTotal },
-    fc: { caisse: caisse.fc, debts: debtsFC, stock, orders: orders_, total: fcTotal },
+    usd: { caisse: caisse.usd, total: usdTotal },
+    fc: { caisse: caisse.fc, stock, orders: orders_, total: fcTotal },
     taux,
     usdInFc,
     grandTotalFc: fcTotal + usdInFc,

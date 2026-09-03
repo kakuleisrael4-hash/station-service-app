@@ -204,6 +204,21 @@ create table if not exists public.cash_entries (
   created_at timestamptz not null default now()
 );
 
+-- -------------------- BUREAU DE CHANGE (USD ⇄ FC) ---------------------
+-- Transfère de l'argent entre les compartiments FC/USD de la caisse.
+-- amount = devise SOURCE ; amount_to = devise CIBLE (= amount*rate ou /rate).
+create table if not exists public.currency_exchanges (
+  id uuid primary key default gen_random_uuid(),
+  direction text not null check (direction in ('usd_to_fc','fc_to_usd')),
+  amount numeric(16,2) not null,
+  amount_to numeric(16,2) not null,
+  rate numeric(12,2) not null,
+  motif text,
+  date date not null default current_date,
+  created_by uuid references public.users (id),
+  created_at timestamptz not null default now()
+);
+
 -- ------------------------ HISTORIQUE CAPITAL -------------------------
 create table if not exists public.capital_history (
   date date primary key,
@@ -495,32 +510,44 @@ create trigger trg_salary_change before update on public.pompiste_profiles
   for each row execute function public.on_salary_change();
 
 -- 9) CAPITAL = Caisse + Valeur Stock + Dettes recouvrables (snapshot du jour)
+-- Capital = Argent en Caisse + Valeur Stock + Commandes en cours (les dettes
+-- clients NE sont PLUS incluses — ce sont des créances, pas de l'argent réel ;
+-- `debts` reste calculé/stocké pour historique mais exclu de la somme `capital`).
 create or replace function public.snapshot_capital() returns void language plpgsql as $$
 declare v_taux numeric; v_fc numeric; v_usd numeric; v_caisse numeric; v_stock numeric; v_debts numeric; v_orders numeric;
+        v_exch_fc numeric; v_exch_usd numeric;
 begin
   select taux_journalier into v_taux from public.settings limit 1;
   v_taux := coalesce(v_taux, 0);
+  -- Bureau de change : USD->FC retire des USD et ajoute des FC (et inversement).
+  v_exch_fc := coalesce((select sum(amount_to) from public.currency_exchanges where direction='usd_to_fc'),0)
+             - coalesce((select sum(amount) from public.currency_exchanges where direction='fc_to_usd'),0);
+  v_exch_usd := coalesce((select sum(amount_to) from public.currency_exchanges where direction='fc_to_usd'),0)
+              - coalesce((select sum(amount) from public.currency_exchanges where direction='usd_to_fc'),0);
   -- Caisse à double compartiment (FC + USD physiques)
   v_fc := coalesce((select sum(total_billetage_fc) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='FC'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='FC'),0)
+        + v_exch_fc
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='FC'),0)
         - coalesce((select sum(montant_paye_fc) from public.salary_payments),0)
         - coalesce((select sum(case when status in ('livre','partielle') then purchase_price else deposit end) from public.supplier_orders),0);
   v_usd := coalesce((select sum(total_usd) from public.reports where status='valide' and closed),0)
         + coalesce((select sum(amount) from public.debt_payments where currency='USD'),0)
         + coalesce((select sum(amount) from public.cash_entries where currency='USD'),0)
+        + v_exch_usd
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0)
         - coalesce((select sum(montant_paye_usd) from public.salary_payments),0);
   v_caisse := v_fc + v_usd * v_taux;
   v_stock := coalesce((select sum(current_l*sale_price_fc) from public.cisterns),0);
-  -- Dettes recouvrables converties en FC (×taux si la dette est en USD)
+  -- Dettes recouvrables converties en FC (×taux si la dette est en USD) —
+  -- calculées/stockées pour historique, mais EXCLUES de la somme `capital`.
   v_debts := coalesce((select sum((total_amount - coalesce((select sum(amount) from public.debt_payments p where p.debt_id=d.id),0))
                        * (case when d.currency='USD' then v_taux else 1 end))
                        from public.debts d where d.status='en_attente'),0);
   v_orders := coalesce((select sum(purchase_price) from public.supplier_orders where status='en_cours'),0);
   insert into public.capital_history(date,caisse,stock_value,debts,orders_value,capital)
-    values (current_date,v_caisse,v_stock,v_debts,v_orders,v_caisse+v_stock+v_debts+v_orders)
+    values (current_date,v_caisse,v_stock,v_debts,v_orders,v_caisse+v_stock+v_orders)
     on conflict (date) do update set caisse=excluded.caisse, stock_value=excluded.stock_value,
       debts=excluded.debts, orders_value=excluded.orders_value, capital=excluded.capital;
 end $$;
@@ -537,6 +564,8 @@ drop trigger if exists trg_cap_payments on public.debt_payments;
 create trigger trg_cap_payments after insert on public.debt_payments for each statement execute function public.trg_snapshot_capital();
 drop trigger if exists trg_cap_cash on public.cash_entries;
 create trigger trg_cap_cash after insert or update or delete on public.cash_entries for each statement execute function public.trg_snapshot_capital();
+drop trigger if exists trg_cap_exchanges on public.currency_exchanges;
+create trigger trg_cap_exchanges after insert or update or delete on public.currency_exchanges for each statement execute function public.trg_snapshot_capital();
 drop trigger if exists trg_cap_salary on public.salary_payments;
 create trigger trg_cap_salary after insert or update or delete on public.salary_payments for each statement execute function public.trg_snapshot_capital();
 

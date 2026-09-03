@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, FilePlus2, Wallet, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck, History, Fuel } from 'lucide-react';
+import { Megaphone, FilePlus2, Wallet, Droplets, Receipt, HandCoins, Landmark, Settings as SettingsIcon, LayoutTemplate, FileDown, CalendarCheck, History, Fuel, Truck, Repeat } from 'lucide-react';
 import { exportReportPDF } from '@/lib/pdf';
 import { getDb } from '@/lib/db';
 import DashboardShell from '@/components/DashboardShell';
@@ -13,7 +13,9 @@ import { Card, SectionTitle, StatCard, Gauge, EmptyState, AnimatedNumber } from 
 import NewReportForm from './NewReportForm';
 import SalaryManagement from './SalaryManagement';
 import CaisseExpenses from './CaisseExpenses';
-import DebtsOrders from './DebtsOrders';
+import Exchange from './Exchange';
+import Debts from './Debts';
+import Orders from './Orders';
 import Communiques from './Communiques';
 import SettingsPanel from './SettingsPanel';
 import SiteEditor from './SiteEditor';
@@ -24,7 +26,7 @@ import { useData } from '@/context/DataContext';
 import { stationRH } from '@/lib/selectors';
 import { fc, liters, shortDate, currentPeriod } from '@/lib/format';
 
-type Tab = 'communique' | 'rapport' | 'historique' | 'cloture' | 'carburant' | 'caisse' | 'dettes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
+type Tab = 'communique' | 'rapport' | 'historique' | 'cloture' | 'carburant' | 'caisse' | 'change' | 'dettes' | 'commandes' | 'capital' | 'communiques' | 'site' | 'salaires' | 'parametres';
 const NAV_GROUPS = [
   {
     label: '📊 Tableau de bord',
@@ -43,7 +45,9 @@ const NAV_GROUPS = [
     label: '💸 Finances',
     items: [
       { id: 'caisse', label: 'Caisse & Dépenses', icon: <Receipt className="h-4 w-4" /> },
-      { id: 'dettes', label: 'Dettes & Commandes', icon: <HandCoins className="h-4 w-4" /> },
+      { id: 'change', label: 'Bureau de change', icon: <Repeat className="h-4 w-4" /> },
+      { id: 'dettes', label: 'Dettes clients', icon: <HandCoins className="h-4 w-4" /> },
+      { id: 'commandes', label: 'Commandes fournisseurs', icon: <Truck className="h-4 w-4" /> },
       { id: 'capital', label: 'Capital', icon: <Landmark className="h-4 w-4" /> },
     ],
   },
@@ -69,6 +73,7 @@ const COMMANDS: CommandEntry[] = [
   { id: 'salaires', label: 'Payer un pompiste', group: '⚡ Action rapide', icon: <Wallet className="h-4 w-4" />, keywords: 'paie salaire paiement rh' },
   { id: 'carburant', label: 'Aller au stock (citernes)', group: '⚡ Action rapide', icon: <Droplets className="h-4 w-4" />, keywords: 'stock cuve citerne carburant jauge' },
   { id: 'capital', label: 'Voir le capital', group: '⚡ Action rapide', icon: <Landmark className="h-4 w-4" />, keywords: 'capital patrimoine evolution courbe' },
+  { id: 'change', label: 'Échanger USD ⇄ FC', group: '⚡ Action rapide', icon: <Repeat className="h-4 w-4" />, keywords: 'change devise conversion dollar franc taux' },
   { id: 'rapport', label: 'Saisir un nouveau rapport', group: '⚡ Action rapide', icon: <FilePlus2 className="h-4 w-4" />, keywords: 'shift pompiste index billetage' },
   { id: 'cloture', label: 'Clôturer la journée', group: '⚡ Action rapide', icon: <CalendarCheck className="h-4 w-4" />, keywords: 'cloture consolidation ventes journalieres' },
 ];
@@ -193,7 +198,9 @@ export default function AdminDashboard() {
       {tab === 'cloture' && <DailyClosing />}
       {tab === 'carburant' && <FuelStockManagement canEdit />}
       {tab === 'caisse' && <CaisseExpenses />}
-      {tab === 'dettes' && <DebtsOrders />}
+      {tab === 'change' && <Exchange />}
+      {tab === 'dettes' && <Debts />}
+      {tab === 'commandes' && <Orders />}
       {tab === 'capital' && <CapitalEvolution />}
       {tab === 'communiques' && <Communiques />}
       {tab === 'site' && <SiteEditor />}
