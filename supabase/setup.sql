@@ -519,10 +519,12 @@ create trigger trg_salary_change before update on public.pompiste_profiles
 -- `debts` reste calculé/stocké pour historique mais exclu de la somme `capital`).
 create or replace function public.snapshot_capital() returns void language plpgsql as $$
 declare v_taux numeric; v_fc numeric; v_usd numeric; v_caisse numeric; v_stock numeric; v_debts numeric; v_orders numeric;
-        v_exch_fc numeric; v_exch_usd numeric;
+        v_exch_fc numeric; v_exch_usd numeric; v_essence_buy numeric; v_gasoil_buy numeric;
 begin
-  select taux_journalier into v_taux from public.settings limit 1;
+  select taux_journalier, essence_buy_price, gasoil_buy_price into v_taux, v_essence_buy, v_gasoil_buy from public.settings limit 1;
   v_taux := coalesce(v_taux, 0);
+  v_essence_buy := coalesce(v_essence_buy, 0);
+  v_gasoil_buy := coalesce(v_gasoil_buy, 0);
   -- Bureau de change : USD->FC retire des USD et ajoute des FC (et inversement).
   v_exch_fc := coalesce((select sum(amount_to) from public.currency_exchanges where direction='usd_to_fc'),0)
              - coalesce((select sum(amount) from public.currency_exchanges where direction='fc_to_usd'),0);
@@ -543,7 +545,9 @@ begin
         - coalesce((select sum(amount) from public.expenses where report_id is null and currency='USD'),0)
         - coalesce((select sum(montant_paye_usd) from public.salary_payments),0);
   v_caisse := v_fc + v_usd * v_taux;
-  v_stock := coalesce((select sum(current_l*sale_price_fc) from public.cisterns),0);
+  -- Stock valorisé au prix d'ACHAT (pas le prix de vente) : le Capital ne
+  -- doit pas compter la marge non réalisée sur du carburant pas encore vendu.
+  v_stock := coalesce((select sum(current_l * (case when fuel='gasoil' then v_gasoil_buy else v_essence_buy end)) from public.cisterns),0);
   -- Dettes recouvrables converties en FC (×taux si la dette est en USD) —
   -- calculées/stockées pour historique, mais EXCLUES de la somme `capital`.
   v_debts := coalesce((select sum((total_amount - coalesce((select sum(amount) from public.debt_payments p where p.debt_id=d.id),0))

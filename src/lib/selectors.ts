@@ -225,9 +225,12 @@ export function computeCaisse(
   return { fc, usd, total_fc: fc + usd * taux };
 }
 
-/** Valeur du stock carburant = Σ (litres restants × prix de vente). */
-export function stockValue(cisterns: Cistern[]): number {
-  return cisterns.reduce((s, c) => s + c.current_l * c.sale_price_fc, 0);
+/** Valeur du stock carburant = Σ (litres restants × prix d'ACHAT/coût), PAS
+ *  le prix de vente — sinon le Capital compterait la marge non réalisée
+ *  (bénéfice potentiel sur du carburant pas encore vendu) comme de l'argent
+ *  réel. Cohérent avec pendingOrdersValue (déjà valorisée au prix d'achat). */
+export function stockValue(cisterns: Cistern[], buyPrices: { super: number; gasoil: number }): number {
+  return cisterns.reduce((s, c) => s + c.current_l * (c.fuel === 'gasoil' ? buyPrices.gasoil : buyPrices.super), 0);
 }
 
 /** Dettes recouvrables converties en FC = Σ restes dus (×taux si la dette est en USD). */
@@ -262,12 +265,13 @@ export function computeCapital(
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
+  buyPrices: { super: number; gasoil: number },
   cashEntries: CashEntry[] = [],
   salaryPayments: SalaryPayment[] = [],
   exchanges: CurrencyExchange[] = [],
 ): CapitalBreakdown {
   const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments, exchanges).total_fc;
-  const sv = stockValue(cisterns);
+  const sv = stockValue(cisterns, buyPrices);
   const ov = pendingOrdersValue(orders);
   return { caisse, stock_value: sv, orders_value: ov, capital: caisse + sv + ov };
 }
@@ -315,12 +319,13 @@ export function capitalByCurrency(
   debtPayments: DebtPayment[],
   orders: SupplierOrder[],
   taux: number,
+  buyPrices: { super: number; gasoil: number },
   cashEntries: CashEntry[] = [],
   salaryPayments: SalaryPayment[] = [],
   exchanges: CurrencyExchange[] = [],
 ): CapitalByCurrency {
   const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments, exchanges);
-  const stock = stockValue(cisterns);
+  const stock = stockValue(cisterns, buyPrices);
   const orders_ = pendingOrdersValue(orders);
   const usdTotal = caisse.usd;
   const fcTotal = caisse.fc + stock + orders_;

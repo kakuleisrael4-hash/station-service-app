@@ -77,7 +77,7 @@ export interface Cistern {
   fuel: FuelType;
   capacity_l: number;
   current_l: number;
-  sale_price_fc: number; // prix de vente unitaire FC/L (sert au calcul du capital)
+  sale_price_fc: number; // prix de vente unitaire FC/L (affichage/vitrine — PAS utilisé pour le Capital, cf. stockValue qui valorise au prix d'achat)
   updated_at: string;
 }
 

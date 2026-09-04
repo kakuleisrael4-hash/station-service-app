@@ -9,8 +9,9 @@ import { fc, usd, liters, shortDate, fullDate } from '@/lib/format';
 export default function CapitalEvolution() {
   const { reports, cisterns, expenses, debtPayments, supplierOrders, cashEntries, currencyExchanges, salaryPayments, capitalHistory, settings } = useData();
   const taux = settings.taux_journalier;
-  const b = computeCapital(reports, cisterns, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments, currencyExchanges);
-  const cc = capitalByCurrency(reports, cisterns, expenses, debtPayments, supplierOrders, taux, cashEntries, salaryPayments, currencyExchanges);
+  const buyPrices = { super: settings.essence_buy_price, gasoil: settings.gasoil_buy_price };
+  const b = computeCapital(reports, cisterns, expenses, debtPayments, supplierOrders, taux, buyPrices, cashEntries, salaryPayments, currencyExchanges);
+  const cc = capitalByCurrency(reports, cisterns, expenses, debtPayments, supplierOrders, taux, buyPrices, cashEntries, salaryPayments, currencyExchanges);
   const sales = salesByFuel(reports);
 
   // On s'assure que le dernier point reflète le capital courant calculé.

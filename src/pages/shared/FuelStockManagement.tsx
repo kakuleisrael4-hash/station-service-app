@@ -8,7 +8,8 @@ import { fc, liters, fullDate } from '@/lib/format';
 import type { FuelType } from '@/types';
 
 export default function FuelStockManagement({ canEdit = false }: { canEdit?: boolean }) {
-  const { cisterns, fuelMovements, stockLogs, addStockLog, quickDelivery } = useData();
+  const { cisterns, fuelMovements, stockLogs, settings, addStockLog, quickDelivery } = useData();
+  const buyPrices = { super: settings.essence_buy_price, gasoil: settings.gasoil_buy_price };
   const critical = cisterns.filter((c) => (c.current_l / c.capacity_l) * 100 < CRITICAL_STOCK_PCT);
   const totalL = cisterns.reduce((s, c) => s + c.current_l, 0);
 
@@ -62,7 +63,7 @@ export default function FuelStockManagement({ canEdit = false }: { canEdit?: boo
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Volume total en stock" value={liters(totalL)} icon={<Droplets className="h-4 w-4" />} />
-        <StatCard label="Valeur du stock" value={fc(stockValue(cisterns))} accent="text-energy-400" />
+        <StatCard label="Valeur du stock (coût d'achat)" value={fc(stockValue(cisterns, buyPrices))} accent="text-energy-400" />
         <StatCard label="Citernes critiques" value={critical.length} accent={critical.length ? 'text-rose-400' : 'text-slate-100'} />
       </div>
 

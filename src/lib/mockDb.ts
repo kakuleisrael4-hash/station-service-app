@@ -115,7 +115,8 @@ function rollbackReportImpacts(r: Report) {
 
 /** Recalcule et upsert le point de capital du jour. */
 function snapshotCapital() {
-  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, store.cashEntries, store.salaryPayments, store.currencyExchanges);
+  const buyPrices = { super: store.settings.essence_buy_price, gasoil: store.settings.gasoil_buy_price };
+  const b = computeCapital(store.reports, store.cisterns, store.expenses, store.debtPayments, store.supplierOrders, store.settings.taux_journalier, buyPrices, store.cashEntries, store.salaryPayments, store.currencyExchanges);
   const date = todayISO();
   const point: CapitalPoint = { date, ...b };
   const idx = store.capitalHistory.findIndex((p) => p.date === date);
