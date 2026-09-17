@@ -22,15 +22,15 @@ export default function CapitalEvolution() {
       <Card>
         <SectionTitle icon={<Landmark className="h-5 w-5" />} title="Évolution du Capital" subtitle="Santé financière globale de la station" />
         <div className="rounded-xl bg-white/[0.03] px-4 py-3 text-sm text-slate-300 ring-1 ring-white/10">
-          <span className="font-semibold text-energy-300">Capital</span> = Argent en Caisse + Valeur Stock Carburant + Commandes Fournisseurs en Cours
-          <span className="ml-1 text-slate-500">(hors dettes clients — suivies séparément dans l'onglet Dettes)</span>
+          <span className="font-semibold text-energy-300">Capital</span> = Argent en Caisse + Valeur Stock Carburant + Acomptes versés (Commandes en Cours)
+          <span className="ml-1 text-slate-500">(hors dettes clients, et hors solde non payé des commandes — suivis séparément)</span>
         </div>
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Argent en caisse" value={fc(b.caisse)} icon={<Wallet className="h-4 w-4" />} accent={b.caisse < 0 ? 'text-rose-400' : 'text-slate-100'} />
         <StatCard label="Valeur stock carburant" value={fc(b.stock_value)} icon={<Droplets className="h-4 w-4" />} />
-        <StatCard label="Commandes en cours" value={fc(b.orders_value)} icon={<Truck className="h-4 w-4" />} accent="text-sky-400" />
+        <StatCard label="Acomptes commandes en cours" value={fc(b.orders_value)} icon={<Truck className="h-4 w-4" />} accent="text-sky-400" />
         <StatCard label="CAPITAL TOTAL" value={<AnimatedNumber value={b.capital} format={fc} />} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
       </div>
 
@@ -53,7 +53,7 @@ export default function CapitalEvolution() {
           <dl className="space-y-1.5 text-sm">
             <Row label="Caisse FC" value={fc(cc.fc.caisse)} />
             <Row label="Valeur stock carburant" value={fc(cc.fc.stock)} />
-            <Row label="Commandes en cours" value={fc(cc.fc.orders)} />
+            <Row label="Acomptes commandes en cours" value={fc(cc.fc.orders)} />
           </dl>
         </Card>
 

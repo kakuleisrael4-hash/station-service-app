@@ -20,6 +20,8 @@ insert into public.pumps (id, label, fuel, cistern_id) values
 on conflict (id) do nothing;
 
 insert into public.expense_categories (name, color) values
+  ('Transport', '#22c55e'),
+  ('Consommation Groupe', '#14b8a6'),
   ('RH / Primes', '#10b981'),
   ('Maintenance Pompes', '#f59e0b'),
   ('Taxes & Impôts', '#fb7185'),

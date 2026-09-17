@@ -27,8 +27,8 @@ export function Breadcrumb({ groups, active }: { groups: NavGroup[]; active: str
   if (!group || !item) return null;
   return (
     <div className="mb-4 flex items-center gap-1.5 text-sm">
-      <span className="text-zinc-500">{group.label}</span>
-      <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
+      <span className="text-slate-500">{group.label}</span>
+      <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
       <span className="flex items-center gap-1.5 font-semibold text-energy-300">{item.icon}{item.label}</span>
     </div>
   );
@@ -41,16 +41,16 @@ function GroupList({ groups, active, onSelect, collapsed = false }: Omit<Props, 
         <div key={g.label}>
           {collapsed
             ? <div className="mx-auto mb-1.5 h-px w-6 bg-white/10" />
-            : <p className="mb-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-zinc-500">{g.label}</p>}
+            : <p className="mb-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">{g.label}</p>}
           <ul className="space-y-0.5">
             {g.items.map((it) => {
               const isActive = it.id === active;
               return (
                 <li key={it.id}>
                   <button onClick={() => onSelect(it.id)} title={collapsed ? it.label : undefined}
-                    className={`relative flex w-full items-center gap-2.5 rounded-xl py-2 text-sm font-medium transition-colors ${
+                    className={`relative flex w-full items-center gap-2.5 rounded-xl py-2 text-sm font-medium transition-colors duration-200 ${
                       collapsed ? 'justify-center px-0' : 'px-3'
-                    } ${isActive ? 'text-energy-300' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+                    } ${isActive ? 'text-energy-300' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'}`}>
                     {isActive && (
                       <motion.span layoutId="nav-active" transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                         className="absolute inset-0 rounded-xl bg-energy-500/10 ring-1 ring-energy-400/40 shadow-[0_0_20px_rgba(249,115,22,0.3)]" />
@@ -91,10 +91,10 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
 
   return (
     <>
-      {/* ===== Desktop : sidebar flottante « glass », rétractable en icônes ===== */}
-      <aside className={`sticky top-20 hidden max-h-[calc(100vh-6rem)] shrink-0 self-start overflow-y-auto rounded-2xl border border-white/5 bg-zinc-900/40 p-3 shadow-2xl backdrop-blur-md transition-all duration-300 lg:block ${collapsed ? 'w-16' : 'w-56'}`}>
+      {/* ===== Desktop : sidebar flottante, rétractable en icônes ===== */}
+      <aside className={`sticky top-20 hidden max-h-[calc(100vh-6rem)] shrink-0 self-start overflow-y-auto rounded-2xl border border-white/5 bg-night-900 p-3 shadow-2xl transition-all duration-300 lg:block ${collapsed ? 'w-16' : 'w-56'}`}>
         <button onClick={toggleCollapsed} title={collapsed ? 'Déployer le menu' : 'Réduire en icônes'}
-          className={`mb-3 flex w-full items-center gap-2 rounded-xl py-1.5 text-xs text-zinc-500 hover:bg-white/5 hover:text-white ${collapsed ? 'justify-center px-0' : 'px-3'}`}>
+          className={`mb-3 flex w-full items-center gap-2 rounded-xl py-1.5 text-xs text-slate-500 transition-colors duration-200 hover:bg-white/5 hover:text-slate-100 ${collapsed ? 'justify-center px-0' : 'px-3'}`}>
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /> Réduire</>}
         </button>
         <GroupList groups={groups} active={active} onSelect={onSelect} collapsed={collapsed} />
@@ -103,7 +103,7 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
       {/* ===== Mobile : Bottom Bar Fintech ===== */}
       {bottomBar && center ? (
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
-          <div className="relative flex items-end justify-between rounded-2xl border border-white/5 bg-zinc-900/70 px-2 pb-2 pt-2 shadow-2xl backdrop-blur-xl">
+          <div className="relative flex items-end justify-between rounded-2xl border border-white/5 bg-night-900/95 px-2 pb-2 pt-2 shadow-2xl backdrop-blur-xl">
             {barItems.slice(0, 2).map((it) => <BarButton key={it.id} it={it} active={active} onSelect={onSelect} />)}
             {/* Bouton central rond surélevé — action critique */}
             <motion.button whileTap={{ scale: 0.9 }} onClick={() => onSelect(center.id)} aria-label={center.label}
@@ -112,7 +112,7 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
             </motion.button>
             {barItems.slice(2, 3).map((it) => <BarButton key={it.id} it={it} active={active} onSelect={onSelect} />)}
             <button onClick={() => setOpen(true)}
-              className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium text-zinc-400">
+              className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium text-slate-400">
               <Menu className="h-5 w-5" />
               Menu
             </button>
@@ -121,10 +121,10 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
       ) : (
         <div className="mb-4 lg:hidden">
           <button onClick={() => setOpen(true)}
-            className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-zinc-900/40 px-4 py-2.5 text-left backdrop-blur-md">
+            className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-night-900 px-4 py-2.5 text-left">
             <Menu className="h-5 w-5 text-energy-400" />
             <span className="flex items-center gap-2 font-semibold">{find(active)?.icon}{find(active)?.label ?? 'Menu'}</span>
-            <span className="ml-auto text-xs text-zinc-500">Menu</span>
+            <span className="ml-auto text-xs text-slate-500">Menu</span>
           </button>
         </div>
       )}
@@ -144,7 +144,7 @@ export default function SideNav({ groups, active, onSelect, bottomBar }: Props) 
         initial={false}
         animate={{ x: open ? 0 : '-105%' }}
         transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-        className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-white/5 bg-zinc-950/95 p-4 backdrop-blur-xl lg:hidden ${open ? '' : 'pointer-events-none'}`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 overflow-y-auto border-r border-white/5 bg-night-950 p-4 lg:hidden ${open ? '' : 'pointer-events-none'}`}
         aria-hidden={!open}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -161,8 +161,8 @@ function BarButton({ it, active, onSelect }: { it: NavItem; active: string; onSe
   const isActive = it.id === active;
   return (
     <motion.button whileTap={{ scale: 0.92 }} onClick={() => onSelect(it.id)}
-      className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium transition-colors ${
-        isActive ? 'text-energy-400' : 'text-zinc-400'
+      className={`flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium transition-colors duration-200 ${
+        isActive ? 'text-energy-400' : 'text-slate-400'
       }`}>
       <span className={isActive ? 'drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]' : ''}>{it.icon}</span>
       <span className="max-w-16 truncate">{it.label.split(' ')[0]}</span>

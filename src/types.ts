@@ -96,9 +96,10 @@ export interface PumpReading {
   cistern_id: string;
   index_open: number;
   index_close: number;
-  litrage: number;
+  litrage: number; // NET (litrage brut − RC) : c'est ce montant qui est facturé ET décrémenté de la citerne
   unit_price: number;
   montant: number;
+  rc_liters: number; // Retour Citerne : litres sortis puis restitués (client s'est désisté) — jamais vendus, jamais sortis du stock
 }
 
 /** Mouvement de carburant d'une citerne (entrée livraison / sortie vente). */
@@ -190,6 +191,18 @@ export interface Debt {
   date: string;
   status: DebtStatus;
   created_at: string;
+  report_id?: string | null; // dette créée depuis l'élaboration d'un rapport (traçabilité)
+}
+
+/** Créance saisie directement dans l'élaboration du rapport (crédit client sur le shift). */
+export interface DebtDraft {
+  id: string; // clé React locale (pas persistée)
+  client_name: string;
+  phone: string;
+  fuel: FuelType;
+  liters: number;
+  total_amount: number;
+  currency: Currency;
 }
 
 export interface DebtPayment {
@@ -329,6 +342,7 @@ export interface Report {
   gasoil_litrage: number;
   gasoil_montant: number;
   total_depenses: number;
+  total_dettes: number; // créances clients enregistrées avec le rapport (crédit non encaissé)
   total_a_remettre: number; // Y
   total_billetage_fc: number;
   total_usd_fc: number;
@@ -376,6 +390,7 @@ export interface PumpDraft {
   pump_id: string;
   index_open: number;
   index_close: number;
+  rc_liters: number; // Retour Citerne : litres sortis puis restitués (jamais vendus)
 }
 
 export interface ReportDraft {
@@ -387,6 +402,7 @@ export interface ReportDraft {
   total_usd: number;
   billetage: Billetage;
   expenses: Expense[];
+  debts: DebtDraft[]; // créances clients saisies avec le rapport
   final_stars: number | null;
   admin_comment: string;
   montant_ecart?: number; // écart constaté X − Y (renseigné à la soumission)
@@ -400,6 +416,7 @@ export interface ComputedReport {
   gasoil_litrage: number;
   gasoil_montant: number;
   total_depenses: number;
+  total_dettes: number;
   total_a_remettre: number; // Y
   total_billetage_fc: number;
   total_usd_fc: number;

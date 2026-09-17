@@ -101,6 +101,7 @@ create table if not exists public.reports (
   gasoil_litrage  numeric(14,2) not null default 0,
   gasoil_montant  numeric(16,2) not null default 0,
   total_depenses  numeric(14,2) not null default 0,
+  total_dettes    numeric(14,2) not null default 0,  -- créances clients saisies avec le rapport (crédit non encaissé)
   total_a_remettre numeric(16,2) not null default 0,
   total_billetage_fc numeric(16,2) not null default 0,
   total_usd_fc numeric(16,2) not null default 0,
@@ -129,7 +130,8 @@ create table if not exists public.report_pump_readings (
   fuel fuel_type,
   index_open numeric(14,2) not null default 0,
   index_close numeric(14,2) not null default 0,
-  litrage numeric(14,2) not null default 0,
+  rc_liters numeric(14,2) not null default 0,  -- Retour Citerne : litres sortis puis restitués (jamais vendus/décrémentés)
+  litrage numeric(14,2) not null default 0,    -- NET = (index_close-index_open) − rc_liters
   unit_price numeric(10,2) not null default 0,
   montant numeric(16,2) not null default 0,
   constraint readings_chk check (index_close >= index_open),
@@ -156,7 +158,11 @@ create table if not exists public.debts (
   liters numeric(14,2) not null default 0, total_amount numeric(16,2) not null,
   currency currency not null default 'FC',          -- devise de suivi de la dette
   date date not null default current_date, status debt_status not null default 'en_attente',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Dette créée depuis l'élaboration d'un rapport (crédit non encaissé sur le
+  -- shift) : traçabilité + suppression en cascade si le rapport est supprimé.
+  -- NULL = dette saisie indépendamment (onglet Dettes clients), comportement inchangé.
+  report_id uuid references public.reports (id) on delete cascade
 );
 create table if not exists public.debt_payments (
   id uuid primary key default gen_random_uuid(),
@@ -338,7 +344,9 @@ begin
   select p.fuel, p.cistern_id, c.sale_price_fc into f, cid, price
     from public.pumps p join public.cisterns c on c.id = p.cistern_id where p.id = new.pump_id;
   new.fuel := f; new.cistern_id := cid; new.unit_price := coalesce(price,0);
-  new.litrage := greatest(new.index_close - new.index_open, 0);
+  -- RC (Retour Citerne) plafonné au litrage brut : le surplus retourné n'a
+  -- jamais quitté la citerne, donc jamais vendu ni décrémenté à la clôture.
+  new.litrage := greatest(new.index_close - new.index_open - greatest(coalesce(new.rc_liters,0),0), 0);
   new.montant := new.litrage * new.unit_price;
   return new;
 end $$;
@@ -390,11 +398,30 @@ drop trigger if exists trg_expenses_sync on public.expenses;
 create trigger trg_expenses_sync after insert or update or delete on public.expenses
   for each row execute function public.expenses_sync();
 
+-- 3c) Créances (dettes) d'un rapport -> total_dettes (converties en FC au
+--     taux du jour DU RAPPORT, pas le taux courant des réglages).
+create or replace function public.debts_sync() returns trigger language plpgsql as $$
+declare rid uuid; v_taux numeric;
+begin
+  rid := coalesce(new.report_id, old.report_id);
+  if rid is not null then
+    select taux_journalier into v_taux from public.reports where id = rid;
+    update public.reports r set total_dettes =
+      (select coalesce(sum(case when d.currency='USD' then d.total_amount*coalesce(v_taux,0) else d.total_amount end),0)
+       from public.debts d where d.report_id = rid)
+      where r.id = rid;
+  end if;
+  return coalesce(new, old);
+end $$;
+drop trigger if exists trg_debts_sync on public.debts;
+create trigger trg_debts_sync after insert or update or delete on public.debts
+  for each row execute function public.debts_sync();
+
 -- 4) Recalcul du rapport (Y, X, écart, note, bénéfice via marges)
 create or replace function public.reports_recompute() returns trigger language plpgsql as $$
 declare v_es numeric; v_gs numeric; v_eb numeric; v_gb numeric;
 begin
-  new.total_a_remettre := new.essence_montant + new.gasoil_montant - new.total_depenses - new.manquant;
+  new.total_a_remettre := new.essence_montant + new.gasoil_montant - new.total_depenses - new.total_dettes - new.manquant;
   new.total_billetage_fc := public.billetage_sum_fc(new.billetage);
   new.total_usd_fc := new.total_usd * new.taux_journalier;
   new.total_encaisse := new.total_billetage_fc + new.total_usd_fc;
@@ -553,7 +580,11 @@ begin
   v_debts := coalesce((select sum((total_amount - coalesce((select sum(amount) from public.debt_payments p where p.debt_id=d.id),0))
                        * (case when d.currency='USD' then v_taux else 1 end))
                        from public.debts d where d.status='en_attente'),0);
-  v_orders := coalesce((select sum(purchase_price) from public.supplier_orders where status='en_cours'),0);
+  -- Acomptes versés (PAS le prix total) : tant que la commande n'est pas
+  -- livrée, seul l'acompte a réellement quitté la caisse (cf. v_fc plus haut,
+  -- décaissement = deposit pour les commandes en_cours). Compter le prix
+  -- total ici gonflerait le Capital de la part non encore payée.
+  v_orders := coalesce((select sum(deposit) from public.supplier_orders where status='en_cours'),0);
   insert into public.capital_history(date,caisse,stock_value,debts,orders_value,capital)
     values (current_date,v_caisse,v_stock,v_debts,v_orders,v_caisse+v_stock+v_orders)
     on conflict (date) do update set caisse=excluded.caisse, stock_value=excluded.stock_value,
@@ -910,6 +941,8 @@ insert into public.pumps (id, label, fuel, cistern_id) values
 on conflict (id) do nothing;
 
 insert into public.expense_categories (name, color) values
+  ('Transport', '#22c55e'),
+  ('Consommation Groupe', '#14b8a6'),
   ('RH / Primes', '#10b981'),
   ('Maintenance Pompes', '#f59e0b'),
   ('Taxes & Impôts', '#fb7185'),

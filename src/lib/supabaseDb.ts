@@ -25,6 +25,7 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
         pump_id: r.pump_id, fuel: r.fuel, cistern_id: r.cistern_id,
         index_open: n(r.index_open), index_close: n(r.index_close),
         litrage: n(r.litrage), unit_price: n(r.unit_price), montant: n(r.montant),
+        rc_liters: n(r.rc_liters),
       })),
     manquant: n(row.manquant),
     taux_journalier: n(row.taux_journalier),
@@ -41,6 +42,7 @@ function mapReport(row: any, readings: any[], expenses: any[]): Report {
     gasoil_litrage: n(row.gasoil_litrage),
     gasoil_montant: n(row.gasoil_montant),
     total_depenses: n(row.total_depenses),
+    total_dettes: n(row.total_dettes),
     total_a_remettre: n(row.total_a_remettre),
     total_billetage_fc: n(row.total_billetage_fc),
     total_usd_fc: n(row.total_usd_fc),
@@ -171,10 +173,17 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       if (error || !ins) throw new Error(error?.message ?? 'Création du rapport impossible.');
 
       await sb.from('report_pump_readings').insert(
-        draft.pumps.map((p) => ({ report_id: ins.id, pump_id: p.pump_id, index_open: p.index_open, index_close: p.index_close })),
+        draft.pumps.map((p) => ({ report_id: ins.id, pump_id: p.pump_id, index_open: p.index_open, index_close: p.index_close, rc_liters: p.rc_liters || 0 })),
       );
       if (draft.expenses.length) {
         await sb.from('expenses').insert(draft.expenses.map((e) => ({ report_id: ins.id, category_id: e.category_id, description: e.description, amount: e.amount || 0, amount_usd: e.amount_usd || 0, currency: 'FC', date: draft.report_date })));
+      }
+      const debtsToInsert = draft.debts.filter((d) => d.total_amount > 0);
+      if (debtsToInsert.length) {
+        await sb.from('debts').insert(debtsToInsert.map((d) => ({
+          report_id: ins.id, client_name: d.client_name, phone: d.phone, fuel: d.fuel,
+          liters: d.liters || 0, total_amount: d.total_amount, currency: d.currency, date: draft.report_date,
+        })));
       }
       const { data: upd, error: upErr } = await sb.from('reports')
         .update({

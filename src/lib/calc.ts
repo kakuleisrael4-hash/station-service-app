@@ -3,7 +3,7 @@
 //  Calcule par POMPE (4) puis agrège par carburant (Super / Gasoil).
 //  Réplique des triggers SQL (public.reports_recompute).
 // =====================================================================
-import type { Billetage, ComputedReport, Expense, FuelType, Pump, PumpReading, ReportDraft } from '@/types';
+import type { Billetage, ComputedReport, DebtDraft, Expense, FuelType, Pump, PumpReading, ReportDraft } from '@/types';
 import { BALANCE_TOLERANCE, BILLETS_FC, BUY_PRICE_BY_FUEL, PRICE_BY_FUEL, PUMPS, pumpById } from '@/constants';
 
 /** Contexte de calcul : config pompes + prix courants (défaut = constantes). */
@@ -36,6 +36,15 @@ export function sumExpensesFC(expenses: Expense[], taux: number): number {
   return expenses.reduce((acc, e) => acc + expenseFC(e, taux), 0);
 }
 
+/** Coût total d'une créance client en FC (conversion USD -> FC au taux du jour). */
+export function debtFC(d: DebtDraft, taux: number): number {
+  return d.currency === 'USD' ? num(d.total_amount) * num(taux) : num(d.total_amount);
+}
+
+export function sumDebtsFC(debts: DebtDraft[], taux: number): number {
+  return debts.reduce((acc, d) => acc + debtFC(d, taux), 0);
+}
+
 /** Construit les relevés de pompe (litrage + montant par pompe). */
 export function buildPumpReadings(draft: ReportDraft, ctx: CalcContext = {}): PumpReading[] {
   const pumpsCfg = ctx.pumps ?? PUMPS;
@@ -45,7 +54,11 @@ export function buildPumpReadings(draft: ReportDraft, ctx: CalcContext = {}): Pu
     const pump = find(pd.pump_id);
     const fuel = pump?.fuel ?? 'super';
     const unit_price = prices[fuel];
-    const l = litrage(pd.index_open, pd.index_close);
+    const brut = litrage(pd.index_open, pd.index_close);
+    // RC (Retour Citerne) : ne peut excéder le litrage sorti — le surplus retourné
+    // n'a jamais quitté la citerne, donc jamais vendu ni décrémenté (cf. closeDay).
+    const rc = Math.min(Math.max(num(pd.rc_liters), 0), brut);
+    const l = brut - rc;
     return {
       pump_id: pd.pump_id,
       fuel,
@@ -55,6 +68,7 @@ export function buildPumpReadings(draft: ReportDraft, ctx: CalcContext = {}): Pu
       litrage: l,
       unit_price,
       montant: l * unit_price,
+      rc_liters: rc,
     };
   });
 }
@@ -68,9 +82,10 @@ export function computeReport(d: ReportDraft, ctx: CalcContext = {}): ComputedRe
   const gasoil_montant = pumps.filter((p) => p.fuel === 'gasoil').reduce((s, p) => s + p.montant, 0);
 
   const total_depenses = sumExpensesFC(d.expenses, d.taux_journalier);
+  const total_dettes = sumDebtsFC(d.debts, d.taux_journalier);
   const manquant = num(d.manquant);
 
-  const total_a_remettre = essence_montant + gasoil_montant - total_depenses - manquant;
+  const total_a_remettre = essence_montant + gasoil_montant - total_depenses - total_dettes - manquant;
 
   const total_billetage_fc = sumBilletageFC(d.billetage);
   const total_usd_fc = num(d.total_usd) * num(d.taux_journalier);
@@ -93,6 +108,7 @@ export function computeReport(d: ReportDraft, ctx: CalcContext = {}): ComputedRe
     gasoil_litrage,
     gasoil_montant,
     total_depenses,
+    total_dettes,
     total_a_remettre,
     total_billetage_fc,
     total_usd_fc,
@@ -117,6 +133,8 @@ export function validateDraft(d: ReportDraft, c: ComputedReport): string[] {
   });
   if (d.expenses.some((e) => (num(e.amount) > 0 || num(e.amount_usd) > 0) && !e.category_id))
     errors.push('Chaque dépense doit avoir une catégorie.');
+  if (d.debts.some((deb) => num(deb.total_amount) > 0 && !deb.client_name.trim()))
+    errors.push('Chaque créance (dette) doit avoir un nom de client.');
   const hasUsdExpense = d.expenses.some((e) => num(e.amount_usd) > 0);
   if ((num(d.total_usd) > 0 || hasUsdExpense) && num(d.taux_journalier) <= 0)
     errors.push('Renseignez le taux journalier pour convertir les USD.');

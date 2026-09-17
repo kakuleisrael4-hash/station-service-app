@@ -164,7 +164,7 @@ export const mockDb: StationDB = {
       auto_score: c.auto_score, final_stars: draft.final_stars, admin_comment: draft.admin_comment,
       essence_litrage: c.essence_litrage, essence_montant: c.essence_montant,
       gasoil_litrage: c.gasoil_litrage, gasoil_montant: c.gasoil_montant,
-      total_depenses: c.total_depenses, total_a_remettre: c.total_a_remettre,
+      total_depenses: c.total_depenses, total_dettes: c.total_dettes, total_a_remettre: c.total_a_remettre,
       total_billetage_fc: c.total_billetage_fc, total_usd_fc: c.total_usd_fc,
       total_encaisse: c.total_encaisse, ecart: c.ecart,
       montant_ecart: draft.montant_ecart ?? c.ecart, decision_imputation: draft.decision_imputation ?? 'aucun',
@@ -178,6 +178,20 @@ export const mockDb: StationDB = {
       store.expenses = [
         ...draft.expenses.map((e) => ({ ...e, amount_fc: expenseFC(e, draft.taux_journalier), report_id: report.id, created_at: new Date().toISOString() })),
         ...store.expenses,
+      ];
+    }
+    // Créances (dettes) saisies avec le rapport -> registre des dettes clients
+    // (crédit non encaissé, traçable jusqu'au rapport, suivi dans l'onglet Dettes).
+    if (draft.debts.length) {
+      store.debts = [
+        ...draft.debts
+          .filter((d) => d.total_amount > 0)
+          .map((d) => ({
+            id: uid(), client_name: d.client_name, phone: d.phone, fuel: d.fuel, liters: d.liters,
+            total_amount: d.total_amount, currency: d.currency, date: draft.report_date,
+            status: 'en_attente' as const, created_at: new Date().toISOString(), report_id: report.id,
+          })),
+        ...store.debts,
       ];
     }
     // ENREGISTREMENT SEUL : aucun impact stock/RH/caisse/capital ici.
@@ -248,6 +262,10 @@ export const mockDb: StationDB = {
       })
       .filter(Boolean) as typeof store.dailyClosings;
     store.expenses = store.expenses.filter((e) => e.report_id !== reportId); // dépenses du rapport
+    // Créances liées au rapport supprimé (+ leurs paiements éventuels).
+    const linkedDebtIds = store.debts.filter((d) => d.report_id === reportId).map((d) => d.id);
+    store.debtPayments = store.debtPayments.filter((p) => !linkedDebtIds.includes(p.debt_id));
+    store.debts = store.debts.filter((d) => d.report_id !== reportId);
     store.reports = store.reports.filter((x) => x.id !== reportId);
     snapshotCapital();
     emit();

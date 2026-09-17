@@ -240,9 +240,14 @@ export function recoverableDebtsFC(debts: Debt[], payments: DebtPayment[], taux:
     .reduce((s, d) => s + debtRemaining(d, payments) * (d.currency === 'USD' ? taux : 1), 0);
 }
 
-/** Valeur des commandes fournisseurs « en cours » (prix d'achat). */
+/** Valeur des commandes fournisseurs « en cours » = Σ ACOMPTES versés
+ *  (PAS le prix total). Tant qu'une commande n'est pas livrée, seul
+ *  l'acompte a réellement quitté la caisse (cf. orderCashOut) — compter le
+ *  prix total ici gonflerait le Capital de la part non encore payée
+ *  (un simple contrat non exécuté n'est pas un actif réel). Une fois livrée,
+ *  la commande sort de ce calcul et sa valeur apparaît dans stockValue. */
 export function pendingOrdersValue(orders: SupplierOrder[]): number {
-  return orders.filter((o) => o.status === 'en_cours').reduce((s, o) => s + o.purchase_price, 0);
+  return orders.filter((o) => o.status === 'en_cours').reduce((s, o) => s + o.deposit, 0);
 }
 
 export interface CapitalBreakdown {
@@ -254,9 +259,10 @@ export interface CapitalBreakdown {
 
 /**
  * Capital (FC) = Argent en Caisse (FC + USD convertis) + Valeur du Stock
- *              Carburant + Commandes Fournisseurs en cours.
+ *              Carburant + Acomptes versés sur Commandes Fournisseurs en cours.
  * Les dettes clients ne sont PAS incluses : ce sont des créances (pas encore
  * de l'argent réel) — elles sont suivies séparément dans l'onglet Dettes.
+ * (orders_value = Σ acomptes, pas le prix total — cf. pendingOrdersValue.)
  */
 export function computeCapital(
   reports: Report[],
@@ -305,10 +311,10 @@ export interface CapitalByCurrency {
 }
 
 /**
- * Ventile le capital (Caisse + Stock + Commandes — SANS les dettes, cf.
- * computeCapital) par devise d'origine :
+ * Ventile le capital (Caisse + Stock + Acomptes commandes — SANS les
+ * dettes, cf. computeCapital) par devise d'origine :
  *   • Bloc USD (natif) : caisse USD.
- *   • Bloc FC (natif)  : caisse FC + valeur stock + commandes en cours.
+ *   • Bloc FC (natif)  : caisse FC + valeur stock + acomptes commandes en cours.
  *   • Grand Total FC   : Bloc FC + Bloc USD × taux.
  * (Stock & commandes fournisseurs sont libellés en FC dans le modèle de données.)
  */

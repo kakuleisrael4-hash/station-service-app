@@ -123,12 +123,17 @@ export const CRITICAL_STOCK_PCT = 15;
 
 // --------------------------- DÉPENSES --------------------------------
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  { id: 'cat-transport', name: 'Transport', color: '#22c55e' },
+  { id: 'cat-conso-groupe', name: 'Consommation Groupe', color: '#14b8a6' },
   { id: 'cat-rh', name: 'RH / Primes', color: '#f97316' },
   { id: 'cat-maint', name: 'Maintenance Pompes', color: '#f59e0b' },
   { id: 'cat-taxes', name: 'Taxes & Impôts', color: '#fb7185' },
   { id: 'cat-elec', name: 'Factures Électricité', color: '#38bdf8' },
   { id: 'cat-divers', name: 'Divers', color: '#a78bfa' },
 ];
+
+/** Nom (normalisé) de la catégorie qui déclenche l'auto-remplissage du nom du pompiste. */
+export const TRANSPORT_CATEGORY_NAME = 'transport';
 
 /** Coupures de billets FC acceptées au billetage (ordre décroissant). */
 export const BILLETS_FC = [20000, 10000, 5000, 1000, 500, 200, 100] as const;

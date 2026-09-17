@@ -3,37 +3,41 @@ import { motion } from 'framer-motion';
 import {
   Fuel, Droplets, Plus, Trash2, Banknote, DollarSign, AlertTriangle, CheckCircle2,
   Save, Calculator, Star as StarIcon, MessageSquare, Loader2, GaugeCircle, ShieldCheck, UserMinus,
+  HandCoins, Undo2,
 } from 'lucide-react';
 import { Card, SectionTitle, StarRating, FloatingAlert } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { computeReport, validateDraft } from '@/lib/calc';
 import { lastClosingIndexByPump } from '@/lib/selectors';
-import { BILLETS_FC, BALANCE_TOLERANCE, PUMPS } from '@/constants';
+import { BILLETS_FC, BALANCE_TOLERANCE, PUMPS, TRANSPORT_CATEGORY_NAME } from '@/constants';
 import { fc, usd, liters, todayISO } from '@/lib/format';
-import type { EcartDecision, Expense, ReportDraft } from '@/types';
+import type { Currency, DebtDraft, EcartDecision, Expense, FuelType, ReportDraft } from '@/types';
 
 const toNum = (v: string) => {
   const n = parseFloat(String(v).replace(',', '.'));
   return Number.isFinite(n) ? n : 0;
 };
+const newId = () => crypto.randomUUID?.() ?? String(Math.random());
+const blankDebt = (): DebtDraft => ({ id: newId(), client_name: '', phone: '', fuel: 'gasoil', liters: 0, total_amount: 0, currency: 'FC' });
 
 interface FormState {
   pompiste_id: string;
   report_date: string;
-  pumps: Record<string, { open: string; close: string }>;
+  pumps: Record<string, { open: string; close: string; rc: string }>;
   manquant: string;
   taux_journalier: string;
   total_usd: string;
   billetage: Record<string, string>;
   expenses: Expense[];
+  debts: DebtDraft[];
   admin_comment: string;
 }
 
-const blankPumps = () => Object.fromEntries(PUMPS.map((p) => [p.id, { open: '', close: '' }]));
+const blankPumps = () => Object.fromEntries(PUMPS.map((p) => [p.id, { open: '', close: '', rc: '' }]));
 const blank: FormState = {
   pompiste_id: '', report_date: todayISO(), pumps: blankPumps(),
-  manquant: '', taux_journalier: '2850', total_usd: '', billetage: {}, expenses: [], admin_comment: '',
+  manquant: '', taux_journalier: '2850', total_usd: '', billetage: {}, expenses: [], debts: [], admin_comment: '',
 };
 
 export default function NewReportForm() {
@@ -49,8 +53,8 @@ export default function NewReportForm() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((p) => ({ ...p, [k]: v }));
-  const setPump = (id: string, side: 'open' | 'close', v: string) =>
-    setF((p) => ({ ...p, pumps: { ...p.pumps, [id]: { ...(p.pumps[id] ?? { open: '', close: '' }), [side]: v } } }));
+  const setPump = (id: string, side: 'open' | 'close' | 'rc', v: string) =>
+    setF((p) => ({ ...p, pumps: { ...p.pumps, [id]: { ...(p.pumps[id] ?? { open: '', close: '', rc: '' }), [side]: v } } }));
 
   // Pré-remplit l'ouverture avec la dernière fermeture (suggestion) tant que le
   // champ est vide — mais il reste entièrement modifiable par l'Admin.
@@ -59,12 +63,27 @@ export default function NewReportForm() {
       let changed = false;
       const np = { ...p.pumps };
       pumps.forEach((pm) => {
-        const cur = np[pm.id] ?? { open: '', close: '' };
+        const cur = np[pm.id] ?? { open: '', close: '', rc: '' };
         if (!cur.open && openings[pm.id] != null) { np[pm.id] = { ...cur, open: String(openings[pm.id]) }; changed = true; }
       });
       return changed ? { ...p, pumps: np } : p;
     });
   }, [openings, pumps]);
+
+  // Transport : dès qu'un pompiste est sélectionné, une ligne de dépense
+  // « Transport » est ajoutée automatiquement avec son nom en description —
+  // il ne reste qu'à saisir le montant (aucune saisie manuelle du nom).
+  useEffect(() => {
+    if (!f.pompiste_id) return;
+    const transportCat = expenseCategories.find((c) => c.name.trim().toLowerCase() === TRANSPORT_CATEGORY_NAME);
+    if (!transportCat) return;
+    const pompisteName = pompistes.find((p) => p.id === f.pompiste_id)?.display_name ?? '';
+    setF((p) => {
+      if (p.expenses.some((e) => e.category_id === transportCat.id)) return p;
+      const row: Expense = { id: newId(), category_id: transportCat.id, description: pompisteName, amount: 0, amount_usd: 0, currency: 'FC', amount_fc: 0, date: p.report_date };
+      return { ...p, expenses: [row, ...p.expenses] };
+    });
+  }, [f.pompiste_id, expenseCategories, pompistes]);
 
   const draft: ReportDraft = useMemo(() => ({
     pompiste_id: f.pompiste_id,
@@ -74,13 +93,17 @@ export default function NewReportForm() {
     pumps: pumps.map((p) => {
       const openS = f.pumps[p.id]?.open ?? '';
       const closeS = f.pumps[p.id]?.close ?? '';
-      return { pump_id: p.id, index_open: toNum(openS), index_close: closeS === '' ? toNum(openS) : toNum(closeS) };
+      return {
+        pump_id: p.id, index_open: toNum(openS), index_close: closeS === '' ? toNum(openS) : toNum(closeS),
+        rc_liters: toNum(f.pumps[p.id]?.rc ?? ''),
+      };
     }),
     manquant: toNum(f.manquant),
     taux_journalier: toNum(f.taux_journalier),
     total_usd: toNum(f.total_usd),
     billetage: Object.fromEntries(Object.entries(f.billetage).map(([k, v]) => [k, toNum(v)])),
     expenses: f.expenses,
+    debts: f.debts,
     final_stars: stars,
     admin_comment: f.admin_comment,
   }), [f, stars, pumps]);
@@ -101,10 +124,25 @@ export default function NewReportForm() {
   const isSurplus = c.ecart > BALANCE_TOLERANCE;
 
   function addExpense() {
-    set('expenses', [...f.expenses, { id: crypto.randomUUID?.() ?? String(Math.random()), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, amount_usd: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
+    set('expenses', [...f.expenses, { id: newId(), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, amount_usd: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
   }
-  const updateExpense = (id: string, patch: Partial<Expense>) => set('expenses', f.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  const updateExpense = (id: string, patch: Partial<Expense>) => set('expenses', f.expenses.map((e) => {
+    if (e.id !== id) return e;
+    const merged = { ...e, ...patch };
+    // Sélection de la catégorie Transport avec description vide -> auto-nom du pompiste.
+    if (patch.category_id && !merged.description) {
+      const cat = expenseCategories.find((c) => c.id === patch.category_id);
+      if (cat?.name.trim().toLowerCase() === TRANSPORT_CATEGORY_NAME) {
+        merged.description = pompistes.find((p) => p.id === f.pompiste_id)?.display_name ?? '';
+      }
+    }
+    return merged;
+  }));
   const removeExpense = (id: string) => set('expenses', f.expenses.filter((e) => e.id !== id));
+
+  const addDebt = () => set('debts', [...f.debts, blankDebt()]);
+  const updateDebt = (id: string, patch: Partial<DebtDraft>) => set('debts', f.debts.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  const removeDebt = (id: string) => set('debts', f.debts.filter((d) => d.id !== id));
 
   async function doSave(d: ReportDraft, decision: EcartDecision) {
     if (!user) return;
@@ -193,8 +231,12 @@ export default function NewReportForm() {
                     {invalid && <p className="mt-1 text-xs text-rose-400">Ne peut pas être &lt; {toNum(open).toLocaleString('fr-FR')}.</p>}
                   </div>
                 </div>
+                <div className="mt-2">
+                  <label className="label flex items-center gap-1"><Undo2 className="h-3 w-3" /> Retour citerne (RC) <span className="text-slate-500">— carburant sorti puis restitué</span></label>
+                  <input type="number" min={0} className="field !py-2" placeholder="0 L" value={f.pumps[pump.id]?.rc ?? ''} onChange={(e) => setPump(pump.id, 'rc', e.target.value)} title="Litres sortis à la pompe mais renvoyés dans la citerne (client s'est désisté) — déduits de la vente, rajoutés au stock" />
+                </div>
                 <div className="mt-2 flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-sm ring-1 ring-white/10">
-                  <span className="text-slate-400">Montant</span>
+                  <span className="text-slate-400">Montant {reading.rc_liters > 0 && <span className="text-sky-400">(net RC −{liters(reading.rc_liters)})</span>}</span>
                   <span className="font-semibold tabular-nums text-energy-300">{fc(reading.montant)}</span>
                 </div>
               </Card>
@@ -223,6 +265,32 @@ export default function NewReportForm() {
           </div>
           <div className="mt-3 flex justify-between border-t border-white/10 pt-3 text-sm">
             <span className="text-slate-400">Total dépenses</span><span className="font-bold tabular-nums">{fc(c.total_depenses)}</span>
+          </div>
+        </Card>
+
+        {/* Créances clients (Dette) */}
+        <Card>
+          <SectionTitle icon={<HandCoins className="h-5 w-5" />} title="Créances clients (Dette)" subtitle="Carburant donné à crédit — suivi ensuite dans l'onglet Dettes clients" right={<button onClick={addDebt} className="btn-ghost !py-1.5 !px-3"><Plus className="h-4 w-4" /> Ajouter</button>} />
+          {f.debts.length === 0 && <p className="text-sm text-slate-500">Aucune créance.</p>}
+          <div className="space-y-2">
+            {f.debts.map((d) => (
+              <div key={d.id} className="flex flex-wrap items-center gap-2">
+                <input className="field flex-1 min-w-[8rem]" placeholder="Nom du client" value={d.client_name} onChange={(ev) => updateDebt(d.id, { client_name: ev.target.value })} />
+                <input className="field w-32" placeholder="Téléphone" value={d.phone} onChange={(ev) => updateDebt(d.id, { phone: ev.target.value })} />
+                <select className="field w-28" value={d.fuel} onChange={(ev) => updateDebt(d.id, { fuel: ev.target.value as FuelType })}>
+                  <option value="gasoil">Gasoil</option><option value="super">Super</option>
+                </select>
+                <input className="field w-24" type="number" placeholder="Litres" value={d.liters || ''} onChange={(ev) => updateDebt(d.id, { liters: toNum(ev.target.value) })} />
+                <select className="field w-24" value={d.currency} onChange={(ev) => updateDebt(d.id, { currency: ev.target.value as Currency })}>
+                  <option value="FC">FC</option><option value="USD">USD</option>
+                </select>
+                <input className="field w-28" type="number" placeholder="Montant" value={d.total_amount || ''} onChange={(ev) => updateDebt(d.id, { total_amount: toNum(ev.target.value) })} />
+                <button onClick={() => removeDebt(d.id)} className="btn-ghost !px-2.5 text-rose-400"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex justify-between border-t border-white/10 pt-3 text-sm">
+            <span className="text-slate-400">Total créances (déduit de « à remettre »)</span><span className="font-bold tabular-nums text-sky-400">{fc(c.total_dettes)}</span>
           </div>
         </Card>
 
@@ -265,6 +333,7 @@ export default function NewReportForm() {
               <Line label="Total Super (P2-P4)" value={fc(c.essence_montant)} sub={liters(c.essence_litrage)} />
               <Line label="Total Gasoil (P1)" value={fc(c.gasoil_montant)} sub={liters(c.gasoil_litrage)} />
               <Line label="− Dépenses" value={fc(c.total_depenses)} />
+              <Line label="− Dettes (crédit clients)" value={fc(c.total_dettes)} />
               <Line label="− Manquant" value={fc(draft.manquant)} danger />
               <div className="my-2 border-t border-white/10" />
               <div className="flex items-end justify-between">

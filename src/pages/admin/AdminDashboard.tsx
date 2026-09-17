@@ -113,7 +113,7 @@ export default function AdminDashboard() {
       {tab === 'communique' && (
         <div className="space-y-5">
           {/* Bouton d'urgence : statut public de la station */}
-          <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/40 px-4 py-3 backdrop-blur-md">
+          <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-night-900 px-4 py-3">
             <span className={`chip ${stationClosed ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
               <span className={`h-2 w-2 rounded-full animate-pulse-neon ${stationClosed ? 'bg-rose-400 text-rose-400' : 'bg-emerald-400 text-emerald-400'}`} />
               {stationClosed ? `Site public : FERMÉE — ${landing.closed_reason || 'exceptionnelle'}` : 'Site public : STATION OUVERTE'}
@@ -127,15 +127,15 @@ export default function AdminDashboard() {
           <div className="stagger grid gap-3 sm:grid-cols-3">
             <button onClick={() => setTab('rapport')} className="quick-action">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-energy-500 to-rose-500 text-white shadow-glow-soft"><FilePlus2 className="h-5 w-5" /></span>
-              <span><span className="block font-bold">Saisir un rapport</span><span className="block text-xs text-zinc-400">Nouveau shift pompiste</span></span>
+              <span><span className="block font-bold">Saisir un rapport</span><span className="block text-xs text-slate-400">Nouveau shift pompiste</span></span>
             </button>
             <button onClick={() => setTab('caisse')} className="quick-action">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-fuel-400 to-energy-600 text-night-950 shadow-glow-soft"><Receipt className="h-5 w-5" /></span>
-              <span><span className="block font-bold">Ajouter une dépense</span><span className="block text-xs text-zinc-400">FC, USD ou mixte</span></span>
+              <span><span className="block font-bold">Ajouter une dépense</span><span className="block text-xs text-slate-400">FC, USD ou mixte</span></span>
             </button>
             <button onClick={() => setTab('caisse')} className="quick-action">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-rose-400 to-energy-500 text-white shadow-glow-soft"><Wallet className="h-5 w-5" /></span>
-              <span><span className="block font-bold">Approvisionner la caisse</span><span className="block text-xs text-zinc-400">Apport hors rapport</span></span>
+              <span><span className="block font-bold">Approvisionner la caisse</span><span className="block text-xs text-slate-400">Apport hors rapport</span></span>
             </button>
           </div>
           <ChampionsPodium />

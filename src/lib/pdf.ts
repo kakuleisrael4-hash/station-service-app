@@ -169,6 +169,7 @@ export async function exportReportPDF(report: Report, pompisteName: string) {
     [`Total Super — ${vol(report.essence_litrage, 'super')}`, fc(report.essence_montant)],
     [`Total Gasoil — ${vol(report.gasoil_litrage, 'gasoil')}`, fc(report.gasoil_montant)],
     ['− Dépenses', fc(report.total_depenses)],
+    ['− Dettes (crédit clients)', fc(report.total_dettes)],
     ['− Manquant', fc(report.manquant)],
     ['TOTAL À REMETTRE (Y)', fc(report.total_a_remettre)],
     ['Billetage encaissé (X)', fc(report.total_encaisse)],
