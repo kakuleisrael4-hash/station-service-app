@@ -1,0 +1,15 @@
+{
+  "name": "STATION KKC OIL",
+  "short_name": "KKC OIL",
+  "description": "Gestion de la station-service — rapports, caisse, stock, capital.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090a0f",
+  "theme_color": "#f97316",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

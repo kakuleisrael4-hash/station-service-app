@@ -10,7 +10,16 @@
       } catch (e) {}
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- PWA : "Ajouter à l'écran d'accueil" lance l'app en plein écran, sans
+         barre d'adresse du navigateur — ressemble à une vraie application. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f97316" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="KKC OIL" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <!-- Police Inter (référencée par tailwind.config.js mais jamais chargée
          jusqu'ici -> l'app retombait silencieusement sur la police système
          de l'OS, pas Inter). -->

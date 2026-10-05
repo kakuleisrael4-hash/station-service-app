@@ -801,7 +801,9 @@ create policy cat_read on public.expense_categories for select using (public.is_
 create policy exp_admin on public.expenses for all using (public.is_admin()) with check (public.is_admin());
 create policy exp_read on public.expenses for select using (public.is_staff());
 create policy cash_admin on public.cash_entries for all using (public.is_admin()) with check (public.is_admin());
+create policy cash_read on public.cash_entries for select using (public.is_staff());
 create policy exchange_admin on public.currency_exchanges for all using (public.is_admin()) with check (public.is_admin());
+create policy exchange_read on public.currency_exchanges for select using (public.is_staff());
 -- CLÔTURES : admin écrit, admin+viewer lisent
 create policy closing_read on public.daily_closings for select using (public.is_staff());
 create policy closing_admin on public.daily_closings for all using (public.is_admin()) with check (public.is_admin());
@@ -815,10 +817,14 @@ create policy readings_read on public.report_pump_readings for select
                  and (public.is_staff() or (r.pompiste_id=public.my_pompiste_id() and r.status='valide'))));
 create policy readings_admin on public.report_pump_readings for all using (public.is_admin()) with check (public.is_admin());
 
--- DETTES & COMMANDES : admin uniquement
+-- DETTES & COMMANDES : admin écrit · viewer (auditeur) lit (nécessaire pour
+-- que son Capital — composant partagé avec l'admin — calcule la même chose)
 create policy debts_admin on public.debts for all using (public.is_admin()) with check (public.is_admin());
+create policy debts_read on public.debts for select using (public.is_staff());
 create policy dpay_admin on public.debt_payments for all using (public.is_admin()) with check (public.is_admin());
+create policy dpay_read on public.debt_payments for select using (public.is_staff());
 create policy orders_admin on public.supplier_orders for all using (public.is_admin()) with check (public.is_admin());
+create policy orders_read on public.supplier_orders for select using (public.is_staff());
 
 -- CAPITAL : admin + viewer en lecture, admin en écriture (via triggers)
 create policy cap_read on public.capital_history for select using (public.is_staff());

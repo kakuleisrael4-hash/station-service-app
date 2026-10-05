@@ -81,6 +81,45 @@ export default function ViewerDashboard() {
 
       {tab === 'global' && (
         <div className="space-y-5">
+          {/* RÉSUMÉ EN CLAIR — gros chiffres, phrases simples, compréhensibles
+              même sans aucune notion de comptabilité (demande explicite). */}
+          <Card className="ring-1 ring-energy-400/20">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">En clair, ce mois-ci</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-energy-500/15 text-2xl">⛽</span>
+                <div>
+                  <p className="text-2xl font-black tabular-nums text-energy-300">{liters(volSuper + volGasoil)}</p>
+                  <p className="text-sm text-slate-400">de carburant vendu</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-500/15 text-2xl">💰</span>
+                <div>
+                  <p className="text-2xl font-black tabular-nums text-sky-300">{fc(caMonth)}</p>
+                  <p className="text-sm text-slate-400">reçu dans la caisse</p>
+                </div>
+              </div>
+              {rh.totalManquants > 0 ? (
+                <div className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-rose-500/15 text-2xl">⚠️</span>
+                  <div>
+                    <p className="text-2xl font-black tabular-nums text-rose-300">{fc(rh.totalManquants)}</p>
+                    <p className="text-sm text-slate-400">d'argent manquant (à vérifier)</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-500/15 text-2xl">✅</span>
+                  <div>
+                    <p className="text-2xl font-black text-emerald-300">Tout est en règle</p>
+                    <p className="text-sm text-slate-400">aucun argent manquant</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
           <ChampionsPodium />
           <AnnouncementsFeed />
           <div className="stagger grid gap-4 sm:grid-cols-4">
