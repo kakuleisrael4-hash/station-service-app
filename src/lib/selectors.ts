@@ -250,10 +250,23 @@ export function pendingOrdersValue(orders: SupplierOrder[]): number {
   return orders.filter((o) => o.status === 'en_cours').reduce((s, o) => s + o.deposit, 0);
 }
 
+/** Valeur TOTALE (coût d'achat complet, pas juste l'acompte) des commandes
+ *  « en cours » — purement INFORMATIF (ex: carte « valeur des commandes en
+ *  transit »). NE PAS additionner au Capital : la part non encore payée au
+ *  fournisseur n'est pas de l'argent réel tant que la commande n'est pas
+ *  réglée (cf. pendingOrdersValue, qui reste la seule valeur comptée dans le
+ *  Capital). Une fois livrée (statut 'livre'/'partielle'), la commande sort
+ *  naturellement de ce total (filtre 'en_cours') et sa valeur réapparaît
+ *  dans stockValue via le volume désormais en citerne. */
+export function pendingOrdersFullCost(orders: SupplierOrder[]): number {
+  return orders.filter((o) => o.status === 'en_cours').reduce((s, o) => s + o.purchase_price, 0);
+}
+
 export interface CapitalBreakdown {
   caisse: number;
   stock_value: number;
   orders_value: number;
+  orders_full_cost: number; // informatif uniquement (cf. pendingOrdersFullCost)
   capital: number;
 }
 
@@ -279,7 +292,8 @@ export function computeCapital(
   const caisse = computeCaisse(reports, expenses, debtPayments, orders, taux, cashEntries, salaryPayments, exchanges).total_fc;
   const sv = stockValue(cisterns, buyPrices);
   const ov = pendingOrdersValue(orders);
-  return { caisse, stock_value: sv, orders_value: ov, capital: caisse + sv + ov };
+  const ofc = pendingOrdersFullCost(orders);
+  return { caisse, stock_value: sv, orders_value: ov, orders_full_cost: ofc, capital: caisse + sv + ov };
 }
 
 // =================== VENTES PAR CARBURANT (clôturées) ===============

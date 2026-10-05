@@ -34,6 +34,28 @@ export default function CapitalEvolution() {
         <StatCard label="CAPITAL TOTAL" value={<AnimatedNumber value={b.capital} format={fc} />} icon={<TrendingUp className="h-4 w-4" />} accent="text-energy-400" />
       </div>
 
+      {/* Valeur TOTALE (coût d'achat) des commandes en cours — INFORMATIF,
+          pas additionné au Capital (seul l'acompte déjà versé l'est). Sort
+          naturellement de ce total dès que la commande est livrée (statut
+          quitte 'en_cours'), le volume livré intégrant alors stockValue. */}
+      {b.orders_full_cost > 0 && (
+        <Card className="ring-1 ring-sky-400/20">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-500/15 text-sky-400"><Truck className="h-5 w-5" /></div>
+              <div>
+                <p className="font-semibold text-sky-300">Valeur totale des commandes en cours (coût d'achat)</p>
+                <p className="text-xs text-slate-500">Informatif — carburant commandé pas encore livré. Non inclus dans le Capital (seul l'acompte déjà versé l'est, cf. ci-dessus).</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black tabular-nums text-sky-300">{fc(b.orders_full_cost)}</p>
+              <p className="text-xs text-slate-500">dont acompte versé {fc(b.orders_value)} · reste à payer {fc(b.orders_full_cost - b.orders_value)}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* ===== TRANSPARENCE DEVISES : 3 blocs distincts ===== */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Bloc USD natif */}
