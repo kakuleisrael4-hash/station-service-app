@@ -21,13 +21,16 @@ export default function SettingsPanel() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  const [resetErr, setResetErr] = useState<string | null>(null);
   async function confirmReset() {
-    setResetting(true);
+    setResetting(true); setResetErr(null);
     try {
       await resetData();
       setResetOpen(false);
       setResetDone(true);
       setTimeout(() => setResetDone(false), 3000);
+    } catch (e) {
+      setResetErr(e instanceof Error ? e.message : 'Réinitialisation impossible.');
     } finally { setResetting(false); }
   }
 
@@ -244,6 +247,7 @@ export default function SettingsPanel() {
             <span className="mt-1 block text-rose-300">Cette action est irréversible.</span>
           </p>
         </div>
+        {resetErr && <p className="mb-3 text-sm text-rose-400">{resetErr}</p>}
         <div className="flex gap-2">
           <button onClick={() => setResetOpen(false)} disabled={resetting} className="btn-ghost flex-1">Annuler</button>
           <button onClick={confirmReset} disabled={resetting} className="btn-danger flex-1">
