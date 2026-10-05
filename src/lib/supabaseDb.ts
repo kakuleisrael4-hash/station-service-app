@@ -222,6 +222,12 @@ export function createSupabaseDb(url: string, key: string): StationDB {
       const { error } = await sb.rpc('delete_order', { p_order_id: orderId });
       if (error) throw new Error(error.message);
     },
+    async resetData() {
+      // Fonction SQL transactionnelle : vide l'historique transactionnel,
+      // remet les citernes à 0L, garde comptes/réglages/catégories/vitrine.
+      const { error } = await sb.rpc('reset_station_data');
+      if (error) throw new Error(error.message);
+    },
 
     // ---- Lectures FRAÎCHES pour les exports PDF (jointures complètes au clic) ----
     async fetchReport(reportId) {

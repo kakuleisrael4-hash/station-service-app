@@ -622,5 +622,35 @@ export const mockDb: StationDB = {
     if (n && !n.read) { n.read = true; emit(); }
   },
 
+  /**
+   * Réinitialise toutes les données TRANSACTIONNELLES (rapports, caisse,
+   * dettes, commandes, salaires versés, historique capital, stock/mouvements,
+   * notifications, communiqués) et remet les citernes à 0L.
+   * CONSERVE : comptes (users/pompistes — juste le cumul manquants remis à 0),
+   * pompes/citernes (définitions), prix/réglages, catégories de dépenses,
+   * site vitrine. Action irréversible — confirmée côté UI avant l'appel.
+   */
+  async resetData() {
+    const now = new Date().toISOString();
+    store.reports = [];
+    store.expenses = [];
+    store.debts = [];
+    store.debtPayments = [];
+    store.supplierOrders = [];
+    store.cashEntries = [];
+    store.currencyExchanges = [];
+    store.dailyClosings = [];
+    store.capitalHistory = [];
+    store.stockLogs = [];
+    store.fuelMovements = [];
+    store.announcements = [];
+    store.notifications = [];
+    store.salaryPayments = [];
+    store.salaryHistory = [];
+    store.cisterns = store.cisterns.map((c) => ({ ...c, current_l: 0, updated_at: now }));
+    store.pompistes = store.pompistes.map((p) => ({ ...p, cumul_manquants_mois: 0 }));
+    emit();
+  },
+
   subscribe(cb) { listeners.add(cb); return () => listeners.delete(cb); },
 };

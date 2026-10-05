@@ -172,6 +172,12 @@ export interface StationDB {
   /** Supprime une commande fournisseur. Si elle était LIVRÉE : rollback du stock
    *  de la citerne (volume soustrait) + recalcul du capital. */
   deleteOrder(orderId: string): Promise<void>;
+  /** Réinitialise tout l'historique transactionnel (rapports, caisse, dettes,
+   *  commandes, salaires versés, historique capital, stock/mouvements,
+   *  notifications, communiqués) et remet les citernes à 0L. Conserve les
+   *  comptes, fiches pompistes, prix/réglages, catégories et site vitrine.
+   *  Réservé Admin. Action irréversible. */
+  resetData(): Promise<void>;
 
   // Lectures FRAÎCHES (exports PDF) : re-fetch direct depuis la base au moment du clic.
   fetchReport(reportId: string): Promise<Report | null>;

@@ -11,7 +11,7 @@ import { useData } from '@/context/DataContext';
 import { computeReport, validateDraft } from '@/lib/calc';
 import { lastClosingIndexByPump } from '@/lib/selectors';
 import { BILLETS_FC, BALANCE_TOLERANCE, PUMPS, TRANSPORT_CATEGORY_NAME } from '@/constants';
-import { fc, usd, liters, todayISO } from '@/lib/format';
+import { fc, usd, liters, todayISO, yesterdayISO, fullDate } from '@/lib/format';
 import type { Currency, DebtDraft, EcartDecision, Expense, FuelType, ReportDraft } from '@/types';
 
 const toNum = (v: string) => {
@@ -123,6 +123,13 @@ export default function NewReportForm() {
   const isDeficit = shortfall > BALANCE_TOLERANCE;
   const isSurplus = c.ecart > BALANCE_TOLERANCE;
 
+  // Alerte doublon : un rapport existe déjà pour CE pompiste à CETTE date
+  // (shift déjà saisi — évite les doubles-saisies par erreur).
+  const duplicateCount = useMemo(
+    () => (f.pompiste_id ? reports.filter((r) => r.pompiste_id === f.pompiste_id && r.report_date === f.report_date).length : 0),
+    [reports, f.pompiste_id, f.report_date],
+  );
+
   function addExpense() {
     set('expenses', [...f.expenses, { id: newId(), category_id: expenseCategories[0]?.id ?? null, description: '', amount: 0, amount_usd: 0, currency: 'FC', amount_fc: 0, date: f.report_date }]);
   }
@@ -190,10 +197,23 @@ export default function NewReportForm() {
               </select>
             </div>
             <div>
-              <label className="label">Date du rapport * <span className="font-normal text-slate-500">(saisie manuelle — saisie décalée possible)</span></label>
-              <input type="date" className="field" value={f.report_date} max={todayISO()} onChange={(e) => set('report_date', e.target.value)} required />
+              <label className="label">Date du rapport * <span className="font-normal text-slate-500">(saisie décalée possible)</span></label>
+              <div className="flex gap-2">
+                <input type="date" className="field flex-1" value={f.report_date} max={todayISO()} onChange={(e) => set('report_date', e.target.value)} required />
+                <button type="button" onClick={() => set('report_date', todayISO())}
+                  className={`btn-ghost !px-3 whitespace-nowrap ${f.report_date === todayISO() ? 'bg-energy-500/15 text-energy-300' : ''}`}>Aujourd'hui</button>
+                <button type="button" onClick={() => set('report_date', yesterdayISO())}
+                  className={`btn-ghost !px-3 whitespace-nowrap ${f.report_date === yesterdayISO() ? 'bg-energy-500/15 text-energy-300' : ''}`}>Hier</button>
+              </div>
+              {f.report_date && <p className="mt-1 text-xs capitalize text-slate-500">{fullDate(f.report_date)}</p>}
             </div>
           </div>
+          {duplicateCount > 0 && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-fuel-500/10 px-3 py-2 text-sm text-fuel-300 ring-1 ring-fuel-400/30">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Ce pompiste a déjà {duplicateCount === 1 ? 'un rapport' : `${duplicateCount} rapports`} enregistré{duplicateCount > 1 ? 's' : ''} à cette date — vérifiez qu'il ne s'agit pas d'une double saisie (plusieurs shifts le même jour sont possibles).
+            </div>
+          )}
         </Card>
 
         {/* 4 pompes */}

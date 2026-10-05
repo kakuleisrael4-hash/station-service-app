@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database, Trash2, AlertTriangle, Moon, Sun } from 'lucide-react';
+import { Settings as SettingsIcon, Fuel, GitBranch, Users, Tag, Save, Plus, Loader2, Shield, Database, Trash2, AlertTriangle, Moon, Sun, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { Card, SectionTitle, Modal } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -14,7 +14,22 @@ export default function SettingsPanel() {
   const {
     settings, pumps, cisterns, pompistes, users, expenseCategories,
     updateSettings, updatePump, updateCisternCapacity, addPompiste, deletePompiste, updatePompiste, updateSalary, updateUserRole, addExpenseCategory,
+    resetData,
   } = useData();
+
+  // --- Réinitialisation des données (Admin, irréversible) ---
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+  async function confirmReset() {
+    setResetting(true);
+    try {
+      await resetData();
+      setResetOpen(false);
+      setResetDone(true);
+      setTimeout(() => setResetDone(false), 3000);
+    } finally { setResetting(false); }
+  }
 
   // --- Suppression d'un pompiste ---
   const [delTarget, setDelTarget] = useState<PompisteProfile | null>(null);
@@ -202,6 +217,40 @@ export default function SettingsPanel() {
           <button onClick={() => { if (cat.name.trim()) { addExpenseCategory(cat.name.trim(), cat.color); setCat({ name: '', color: '#f97316' }); } }} className="btn-ghost !px-3"><Plus className="h-4 w-4" /></button>
         </div>
       </Card>
+
+      {/* ZONE DE DANGER — Réinitialisation des données */}
+      <Card className="border-rose-500/30">
+        <SectionTitle icon={<RotateCcw className="h-5 w-5 text-rose-400" />} title="Réinitialiser les données" subtitle="Zone de danger — action irréversible" />
+        <div className="mb-4 flex items-start gap-3 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-500/30">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+          <div className="text-sm text-slate-200">
+            <p>Vide tout l'historique transactionnel : rapports, caisse &amp; dépenses, dettes, commandes fournisseurs, bureau de change, salaires versés, historique du capital, stock/mouvements, notifications, communiqués — et remet les citernes à 0L.</p>
+            <p className="mt-1 text-xs text-slate-400">Conservé : comptes, fiches pompistes, prix/réglages, catégories de dépenses, site vitrine.</p>
+          </div>
+        </div>
+        {resetDone && (
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-energy-500/10 px-3 py-2 text-sm font-semibold text-energy-300 ring-1 ring-energy-400/30">
+            <CheckCircle2 className="h-4 w-4" /> Données réinitialisées avec succès.
+          </div>
+        )}
+        <button onClick={() => setResetOpen(true)} className="btn-danger"><RotateCcw className="h-4 w-4" /> Réinitialiser les données</button>
+      </Card>
+
+      <Modal open={resetOpen} onClose={() => !resetting && setResetOpen(false)} title="Confirmer la réinitialisation">
+        <div className="mb-4 flex items-start gap-3 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-500/30">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+          <p className="text-sm text-slate-200">
+            Tout l'historique transactionnel (rapports, caisse, dettes, commandes, salaires versés, capital, stock, notifications, communiqués) sera <span className="font-bold">définitivement effacé</span> et les citernes remises à 0L.
+            <span className="mt-1 block text-rose-300">Cette action est irréversible.</span>
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setResetOpen(false)} disabled={resetting} className="btn-ghost flex-1">Annuler</button>
+          <button onClick={confirmReset} disabled={resetting} className="btn-danger flex-1">
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />} Confirmer la réinitialisation
+          </button>
+        </div>
+      </Modal>
 
       {/* CONFIRMATION DE SUPPRESSION */}
       <Modal open={!!delTarget} onClose={() => !deleting && setDelTarget(null)} title="Supprimer définitivement">

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Fuel, LogOut, PartyPopper, AlertTriangle, Info } from 'lucide-react';
+import { Bell, Fuel, LogOut, PartyPopper, AlertTriangle, Info, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { STATION } from '@/constants';
@@ -75,6 +75,21 @@ function NotificationsBell() {
   );
 }
 
+function RefreshButton() {
+  const { refresh } = useData();
+  const [spinning, setSpinning] = useState(false);
+  async function doRefresh() {
+    if (spinning) return;
+    setSpinning(true);
+    try { await refresh(); } finally { setTimeout(() => setSpinning(false), 500); }
+  }
+  return (
+    <button onClick={doRefresh} className="btn-ghost !px-2.5" aria-label="Actualiser" title="Actualiser les données">
+      <RefreshCw className={`h-5 w-5 ${spinning ? 'animate-spin' : ''}`} />
+    </button>
+  );
+}
+
 export default function DashboardShell({ children, accent }: { children: ReactNode; accent?: string }) {
   const { user, signOut, isMock } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +113,7 @@ export default function DashboardShell({ children, accent }: { children: ReactNo
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            <RefreshButton />
             <NotificationsBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-semibold leading-tight">{user?.full_name}</p>
