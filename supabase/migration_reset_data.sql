@@ -22,23 +22,26 @@ create or replace function public.reset_station_data() returns void language plp
 begin
   if not public.is_admin() then raise exception 'Action réservée à l''administrateur.'; end if;
 
-  delete from public.reports;          -- cascade : report_pump_readings, expenses(report_id), debts(report_id->debt_payments)
-  delete from public.expenses;         -- dépenses hors-rapport restantes
-  delete from public.debts;            -- dettes hors-rapport restantes (cascade debt_payments)
-  delete from public.supplier_orders;
-  delete from public.cash_entries;
-  delete from public.currency_exchanges;
-  delete from public.daily_closings;
-  delete from public.capital_history;
-  delete from public.stock_logs;
-  delete from public.fuel_movements;
-  delete from public.announcements;
-  delete from public.notifications;
-  delete from public.salary_payments;
-  delete from public.salary_history;
+  -- `where true` : ce projet Supabase impose une clause WHERE sur tout
+  -- DELETE/UPDATE (garde anti-suppression-massive, active même dans une
+  -- fonction) — where true ne filtre rien, juste satisfait la garde.
+  delete from public.reports where true;          -- cascade : report_pump_readings, expenses(report_id), debts(report_id->debt_payments)
+  delete from public.expenses where true;         -- dépenses hors-rapport restantes
+  delete from public.debts where true;            -- dettes hors-rapport restantes (cascade debt_payments)
+  delete from public.supplier_orders where true;
+  delete from public.cash_entries where true;
+  delete from public.currency_exchanges where true;
+  delete from public.daily_closings where true;
+  delete from public.capital_history where true;
+  delete from public.stock_logs where true;
+  delete from public.fuel_movements where true;
+  delete from public.announcements where true;
+  delete from public.notifications where true;
+  delete from public.salary_payments where true;
+  delete from public.salary_history where true;
 
-  update public.cisterns set current_l = 0, updated_at = now();
-  update public.pompiste_profiles set cumul_manquants_mois = 0;
+  update public.cisterns set current_l = 0, updated_at = now() where true;
+  update public.pompiste_profiles set cumul_manquants_mois = 0 where true;
 
   perform public.snapshot_capital();
 end $$;
