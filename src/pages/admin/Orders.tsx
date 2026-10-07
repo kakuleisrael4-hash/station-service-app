@@ -140,7 +140,7 @@ export default function Orders() {
                       <td className="py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
                           {o.status === 'en_cours' && <button onClick={() => openDeliver(o)} className="btn-ghost !py-1.5 !px-3 text-energy-300"><CheckCircle2 className="h-4 w-4" /> Marquer livré</button>}
-                          <button onClick={() => remove(o, cit?.name ?? o.cistern_id)} className="text-slate-400 hover:text-rose-400 p-1.5" title={o.status !== 'en_cours' ? 'Supprimer (rollback du stock de la citerne)' : 'Supprimer la commande'}><Trash2 className="h-4 w-4" /></button>
+                          <button onClick={() => remove(o, cit?.name ?? o.cistern_id)} className="-m-1.5 p-3 text-slate-400 hover:text-rose-400" title={o.status !== 'en_cours' ? 'Supprimer (rollback du stock de la citerne)' : 'Supprimer la commande'}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>

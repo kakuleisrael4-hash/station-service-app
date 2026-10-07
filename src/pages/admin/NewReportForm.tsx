@@ -270,16 +270,16 @@ export default function NewReportForm() {
           {f.expenses.length === 0 && <p className="text-sm text-slate-500">Aucune dépense.</p>}
           <div className="space-y-2">
             {f.expenses.map((e) => (
-              <div key={e.id} className="flex flex-wrap items-center gap-2">
-                <select className="field w-36" value={e.category_id ?? ''} onChange={(ev) => updateExpense(e.id, { category_id: ev.target.value || null })}>
+              <div key={e.id} className="grid grid-cols-2 items-center gap-2 rounded-2xl bg-white/[0.03] p-2.5 ring-1 ring-white/5 sm:flex sm:flex-wrap sm:bg-transparent sm:p-0 sm:ring-0">
+                <select className="field col-span-2 sm:w-36" value={e.category_id ?? ''} onChange={(ev) => updateExpense(e.id, { category_id: ev.target.value || null })}>
                   <option value="">Catégorie…</option>
                   {expenseCategories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
-                <input className="field flex-1 min-w-[7rem]" placeholder="Description" value={e.description} onChange={(ev) => updateExpense(e.id, { description: ev.target.value })} />
-                <input className="field w-24" type="number" placeholder="FC" title="Part en FC" value={e.amount || ''} onChange={(ev) => updateExpense(e.id, { amount: toNum(ev.target.value) })} />
-                <input className="field w-24" type="number" placeholder="USD" title="Part en USD" value={e.amount_usd || ''} onChange={(ev) => updateExpense(e.id, { amount_usd: toNum(ev.target.value) })} />
-                <span className="text-xs font-semibold tabular-nums text-energy-300 whitespace-nowrap">= {fc((e.amount || 0) + (e.amount_usd || 0) * toNum(f.taux_journalier))}</span>
-                <button onClick={() => removeExpense(e.id)} className="btn-ghost !px-2.5 text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                <input className="field col-span-2 min-w-[7rem] sm:flex-1" placeholder="Description" value={e.description} onChange={(ev) => updateExpense(e.id, { description: ev.target.value })} />
+                <input className="field sm:w-24" type="number" placeholder="FC" title="Part en FC" value={e.amount || ''} onChange={(ev) => updateExpense(e.id, { amount: toNum(ev.target.value) })} />
+                <input className="field sm:w-24" type="number" placeholder="USD" title="Part en USD" value={e.amount_usd || ''} onChange={(ev) => updateExpense(e.id, { amount_usd: toNum(ev.target.value) })} />
+                <span className="text-sm font-semibold tabular-nums text-energy-300 whitespace-nowrap sm:text-xs">= {fc((e.amount || 0) + (e.amount_usd || 0) * toNum(f.taux_journalier))}</span>
+                <button onClick={() => removeExpense(e.id)} className="btn-ghost justify-self-end !px-2.5 text-rose-400" aria-label="Retirer la dépense"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
           </div>
@@ -294,18 +294,18 @@ export default function NewReportForm() {
           {f.debts.length === 0 && <p className="text-sm text-slate-500">Aucune créance.</p>}
           <div className="space-y-2">
             {f.debts.map((d) => (
-              <div key={d.id} className="flex flex-wrap items-center gap-2">
-                <input className="field flex-1 min-w-[8rem]" placeholder="Nom du client" value={d.client_name} onChange={(ev) => updateDebt(d.id, { client_name: ev.target.value })} />
-                <input className="field w-32" placeholder="Téléphone" value={d.phone} onChange={(ev) => updateDebt(d.id, { phone: ev.target.value })} />
-                <select className="field w-28" value={d.fuel} onChange={(ev) => updateDebt(d.id, { fuel: ev.target.value as FuelType })}>
+              <div key={d.id} className="grid grid-cols-2 items-center gap-2 rounded-2xl bg-white/[0.03] p-2.5 ring-1 ring-white/5 sm:flex sm:flex-wrap sm:bg-transparent sm:p-0 sm:ring-0">
+                <input className="field col-span-2 min-w-[8rem] sm:flex-1" placeholder="Nom du client" value={d.client_name} onChange={(ev) => updateDebt(d.id, { client_name: ev.target.value })} />
+                <input className="field col-span-2 sm:w-32" placeholder="Téléphone" value={d.phone} onChange={(ev) => updateDebt(d.id, { phone: ev.target.value })} />
+                <select className="field sm:w-28" value={d.fuel} onChange={(ev) => updateDebt(d.id, { fuel: ev.target.value as FuelType })}>
                   <option value="gasoil">Gasoil</option><option value="super">Super</option>
                 </select>
-                <input className="field w-24" type="number" placeholder="Litres" value={d.liters || ''} onChange={(ev) => updateDebt(d.id, { liters: toNum(ev.target.value) })} />
-                <select className="field w-24" value={d.currency} onChange={(ev) => updateDebt(d.id, { currency: ev.target.value as Currency })}>
+                <input className="field sm:w-24" type="number" placeholder="Litres" value={d.liters || ''} onChange={(ev) => updateDebt(d.id, { liters: toNum(ev.target.value) })} />
+                <select className="field sm:w-24" value={d.currency} onChange={(ev) => updateDebt(d.id, { currency: ev.target.value as Currency })}>
                   <option value="FC">FC</option><option value="USD">USD</option>
                 </select>
-                <input className="field w-28" type="number" placeholder="Montant" value={d.total_amount || ''} onChange={(ev) => updateDebt(d.id, { total_amount: toNum(ev.target.value) })} />
-                <button onClick={() => removeDebt(d.id)} className="btn-ghost !px-2.5 text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                <input className="field sm:w-28" type="number" placeholder="Montant" value={d.total_amount || ''} onChange={(ev) => updateDebt(d.id, { total_amount: toNum(ev.target.value) })} />
+                <button onClick={() => removeDebt(d.id)} className="btn-ghost col-span-2 justify-self-end !px-2.5 text-rose-400 sm:col-span-1" aria-label="Retirer la créance"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
           </div>
@@ -406,9 +406,9 @@ export default function NewReportForm() {
 
       {/* POP-UP DE DÉCISION : déficit de caisse (X < Y) — choix obligatoire */}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-night-950/80 p-4 backdrop-blur-sm" onClick={() => setConfirmOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-night-950/80 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setConfirmOpen(false)}>
           <motion.div initial={{ scale: 0.94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border border-rose-500/40 bg-night-900 p-6 shadow-2xl ring-1 ring-rose-500/20">
+            className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-rose-500/40 bg-night-900 p-5 pb-[calc(1.25rem+var(--safe-bottom))] shadow-2xl ring-1 ring-rose-500/20 sm:rounded-2xl sm:p-6">
             <div className="mb-3 flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-rose-500/15 text-rose-400"><AlertTriangle className="h-6 w-6" /></div>
               <h3 className="text-lg font-black text-rose-200">Déficit de caisse détecté</h3>

@@ -3,6 +3,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { Megaphone, LineChart as LineIcon, Wallet, Star, MessageSquare, Droplets, Fuel, TrendingDown, FileDown, BadgeCheck } from 'lucide-react';
 import { exportPayslipPDF } from '@/lib/pdf';
 import DashboardShell from '@/components/DashboardShell';
+import { MobileTabBar } from '@/components/SideNav';
 import ChampionsPodium from '@/components/ChampionsPodium';
 import AnnouncementsFeed from '@/components/AnnouncementsFeed';
 import { Card, SectionTitle, StatCard, StarRating, EmptyState } from '@/components/ui';
@@ -12,10 +13,10 @@ import { pompisteDaily, payrollOf } from '@/lib/selectors';
 import { fc, usd, liters, shortDate, fullDate, currentPeriod, monthLabel } from '@/lib/format';
 
 type Tab = 'communique' | 'performances' | 'compte';
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'communique', label: 'Communiqué', icon: <Megaphone className="h-4 w-4" /> },
-  { id: 'performances', label: 'Mes performances', icon: <LineIcon className="h-4 w-4" /> },
-  { id: 'compte', label: 'Mon Compte & Salaire', icon: <Wallet className="h-4 w-4" /> },
+const TABS: { id: Tab; label: string; short: string; icon: React.ReactNode }[] = [
+  { id: 'communique', label: 'Communiqué', short: 'Accueil', icon: <Megaphone className="h-4 w-4" /> },
+  { id: 'performances', label: 'Mes performances', short: 'Perfs', icon: <LineIcon className="h-4 w-4" /> },
+  { id: 'compte', label: 'Mon Compte & Salaire', short: 'Mon compte', icon: <Wallet className="h-4 w-4" /> },
 ];
 
 export default function PompisteDashboard() {
@@ -52,16 +53,23 @@ export default function PompisteDashboard() {
 
   return (
     <DashboardShell accent={`Bonjour, ${me.display_name}`}>
-      <div className="mb-5 flex gap-2 overflow-x-auto">
+      {/* Desktop : onglets en haut · Mobile : barre d'onglets basse type application */}
+      <div className="mb-5 hidden gap-2 lg:flex">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`btn whitespace-nowrap ${tab === t.id ? 'bg-energy-500 text-night-950 shadow-glow' : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
             {t.icon} {t.label}
           </button>
         ))}
       </div>
+      <h1 className="mb-4 flex items-center gap-2.5 text-2xl font-black tracking-tight lg:hidden">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-energy-500/15 text-energy-400 [&>svg]:h-5 [&>svg]:w-5">{TABS.find((t) => t.id === tab)?.icon}</span>
+        {TABS.find((t) => t.id === tab)?.label}
+      </h1>
+      <MobileTabBar active={tab} onSelect={(id) => setTab(id as Tab)}
+        items={TABS.map((t) => ({ id: t.id, label: t.short, icon: t.icon }))} />
 
       {tab === 'communique' && (
-        <div className="space-y-5">
+        <div className="page-enter space-y-5">
           <ChampionsPodium />
           <AnnouncementsFeed />
           <div className="grid gap-4 sm:grid-cols-3">

@@ -24,7 +24,7 @@ type Tab = 'global' | 'rapports' | 'carburant' | 'capital' | 'depenses';
 const NAV_GROUPS = [
   {
     label: '📊 Tableau de bord',
-    items: [{ id: 'global', label: 'Vue globale', icon: <Megaphone className="h-4 w-4" /> }],
+    items: [{ id: 'global', label: 'Vue globale', short: 'Accueil', icon: <Megaphone className="h-4 w-4" /> }],
   },
   {
     label: '⛽ Opérations',
@@ -64,7 +64,7 @@ export default function ViewerDashboard() {
         bottomBar={{ itemIds: ['global', 'rapports', 'depenses'], centerId: 'capital' }} />
       <CommandPalette onSelect={(id) => setTab(id as Tab)}
         entries={NAV_GROUPS.flatMap((g) => g.items.map((it) => ({ id: it.id, label: it.label, group: g.label, icon: it.icon })))} />
-      <div className="min-w-0 flex-1 pb-24 lg:pb-0">
+      <div key={tab} className="page-enter min-w-0 flex-1 lg:pb-0">
       <Breadcrumb groups={NAV_GROUPS} active={tab} />
 
       {tab === 'rapports' && <ReportsHistory reports={reports} pompistes={pompistes} />}

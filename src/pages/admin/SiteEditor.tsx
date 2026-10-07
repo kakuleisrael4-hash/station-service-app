@@ -133,9 +133,9 @@ export default function SiteEditor() {
                   <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="btn-ghost !p-1.5 disabled:opacity-30" title="Monter"><ArrowUp className="h-4 w-4" /></button>
                   <button onClick={() => moveSection(i, 1)} disabled={i === c.sections.length - 1} className="btn-ghost !p-1.5 disabled:opacity-30" title="Descendre"><ArrowDown className="h-4 w-4" /></button>
                   <button onClick={() => toggleSection(s.id)}
-                    className={`relative ml-1 h-6 w-11 rounded-full transition-colors ${s.visible ? 'bg-energy-500' : 'bg-white/10'}`}
+                    className={`relative ml-1 h-8 w-14 shrink-0 rounded-full transition-colors ${s.visible ? 'bg-energy-500' : 'bg-white/10'}`}
                     title={s.visible ? 'Masquer' : 'Afficher'} aria-label={`Basculer ${SECTION_LABELS[s.id]}`}>
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${s.visible ? 'left-[22px]' : 'left-0.5'}`} />
+                    <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${s.visible ? 'left-[30px]' : 'left-1'}`} />
                   </button>
                 </li>
               ))}

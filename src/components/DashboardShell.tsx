@@ -5,6 +5,7 @@ import { Bell, Fuel, LogOut, PartyPopper, AlertTriangle, Info, RefreshCw } from 
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { STATION } from '@/constants';
+import { useTableLabels } from '@/lib/useTableLabels';
 import type { NotifType } from '@/types';
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', pompiste: 'Pompiste', viewer: 'Gérant / Auditeur' };
@@ -47,7 +48,7 @@ function NotificationsBell() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="card absolute right-0 z-40 mt-2 w-80 max-h-96 overflow-y-auto p-2"
+              className="card fixed inset-x-3 top-[calc(var(--safe-top)+4.25rem)] z-40 max-h-[70dvh] overflow-y-auto p-2 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-h-96"
             >
               <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Centre de notifications</p>
               {mine.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Aucune notification.</p>}
@@ -93,11 +94,12 @@ function RefreshButton() {
 export default function DashboardShell({ children, accent }: { children: ReactNode; accent?: string }) {
   const { user, signOut, isMock } = useAuth();
   const navigate = useNavigate();
+  useTableLabels();
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-night-950/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-night-950/85 pt-[var(--safe-top)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 py-2.5 pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))] sm:px-6">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-energy-500 text-night-950">
             <Fuel className="h-5 w-5" />
           </div>

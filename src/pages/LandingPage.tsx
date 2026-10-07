@@ -249,8 +249,8 @@ export default function LandingPage({ contentOverride, preview = false }: { cont
   return (
     <div className="min-h-screen">
       {/* NAVBAR */}
-      <nav className={`${preview ? '' : 'sticky top-0'} z-30 border-b border-white/10 bg-night-950/60 backdrop-blur-xl`}>
-        <div className="mx-auto flex max-w-7xl items-center px-4 py-3 sm:px-6">
+      <nav className={`${preview ? '' : 'sticky top-0'} z-30 border-b border-white/10 bg-night-950/80 pt-[var(--safe-top)] backdrop-blur-xl`}>
+        <div className="mx-auto flex max-w-7xl items-center py-3 pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))] sm:px-6">
           <div className="flex items-center gap-2.5">
             <Logo />
             <div className="leading-tight">
@@ -260,7 +260,7 @@ export default function LandingPage({ contentOverride, preview = false }: { cont
           </div>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden sm:block"><StatusBadge c={c} /></span>
-            <button onClick={cta} className="btn-primary">{user ? 'Mon espace' : 'Espace Personnel'} <ArrowRight className="h-4 w-4" /></button>
+            <button onClick={cta} className="btn-primary whitespace-nowrap !px-4">{user ? 'Mon espace' : 'Espace Personnel'} <ArrowRight className="h-4 w-4" /></button>
           </div>
         </div>
       </nav>

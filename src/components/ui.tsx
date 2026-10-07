@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import { Star, X } from 'lucide-react';
 
 /**
@@ -67,7 +67,7 @@ export function StarRating({ value, onChange, readOnly = false, size = 22 }: { v
           type="button"
           disabled={readOnly}
           onClick={() => onChange?.(i)}
-          className={`transition ${readOnly ? 'cursor-default' : 'hover:scale-110'} `}
+          className={`p-2.5 -m-1 transition ${readOnly ? 'cursor-default' : 'hover:scale-110'} `}
           aria-label={`${i} étoile${i > 1 ? 's' : ''}`}
         >
           <Star
@@ -117,29 +117,45 @@ export function Gauge({ label, current, capacity, unit = 'L', color = 'energy', 
   );
 }
 
+/**
+ * Modale : carte centrée sur ordinateur, FEUILLE BASSE sur téléphone
+ * (monte du bas, poignée, glissable vers le bas pour fermer, zone sûre respectée).
+ */
 export function Modal({ open, onClose, children, title }: { open: boolean; onClose: () => void; children: ReactNode; title?: string }) {
+  const controls = useDragControls();
+  const sheet = typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 grid place-items-center p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
           <div className="absolute inset-0 bg-night-950/80 backdrop-blur-sm" onClick={onClose} />
           <motion.div
-            className="card relative z-10 w-full max-w-md p-6"
-            initial={{ scale: 0.95, y: 14, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.95, y: 14, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+            className="card relative z-10 flex max-h-[92dvh] w-full flex-col !rounded-b-none !p-0 sm:max-w-md sm:!rounded-2xl"
+            initial={sheet ? { y: '100%' } : { scale: 0.95, y: 14, opacity: 0 }}
+            animate={sheet ? { y: 0 } : { scale: 1, y: 0, opacity: 1 }}
+            exit={sheet ? { y: '100%' } : { scale: 0.95, y: 14, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+            drag={sheet ? 'y' : false} dragControls={controls} dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 500) onClose(); }}
           >
-            <button onClick={onClose} className="absolute right-4 top-4 text-slate-400 hover:text-white" aria-label="Fermer">
-              <X className="h-5 w-5" />
-            </button>
-            {title && <h3 className="mb-4 text-xl font-bold">{title}</h3>}
-            {children}
+            <div className="shrink-0 touch-none px-5 pt-3 sm:pt-5" onPointerDown={(e) => sheet && controls.start(e)}>
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/20 sm:hidden" />
+              <div className="flex items-start justify-between gap-3">
+                {title ? <h3 className="text-xl font-bold">{title}</h3> : <span />}
+                <button onClick={onClose} className="-mr-2 -mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-400" aria-label="Fermer">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+var(--safe-bottom))] pt-3 sm:pb-6">
+              {children}
+            </div>
           </motion.div>
         </motion.div>
       )}
@@ -155,7 +171,7 @@ export function FloatingAlert({ show, kind = 'error', children }: { show: boolea
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.96 }}
-          className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-2xl px-5 py-3 text-sm font-semibold shadow-2xl ${
+          className={`fixed bottom-[calc(var(--tabbar-h)+var(--safe-bottom)+1.25rem)] inset-x-0 mx-auto z-50 w-max max-w-[calc(100vw-2rem)] rounded-2xl px-5 py-3 text-center text-sm font-semibold shadow-2xl lg:bottom-6 ${
             kind === 'error' ? 'bg-rose-500 text-white' : 'bg-energy-500 text-night-950'
           }`}
         >

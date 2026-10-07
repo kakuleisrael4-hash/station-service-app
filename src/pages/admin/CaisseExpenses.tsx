@@ -101,7 +101,7 @@ export default function CaisseExpenses() {
                     <td className="py-2"><span className="chip bg-energy-500/15 text-energy-300">Entrée · Apport externe</span></td>
                     <td className="py-2 text-slate-300">{c.motif}</td>
                     <td className="py-2 text-right font-semibold tabular-nums text-energy-400">+ {c.currency === 'USD' ? usd(c.amount) : fc(c.amount)}</td>
-                    <td className="py-2 pl-2 text-right"><button onClick={() => removeCashEntry(c.id, c.motif)} className="text-slate-500 hover:text-rose-400" title="Supprimer cet apport"><Trash2 className="h-4 w-4" /></button></td>
+                    <td className="py-2 pl-2 text-right"><button onClick={() => removeCashEntry(c.id, c.motif)} className="-m-3 p-3 text-slate-500 hover:text-rose-400" title="Supprimer cet apport"><Trash2 className="h-4 w-4" /></button></td>
                   </tr>
                 ))}
               </tbody>
@@ -173,7 +173,7 @@ export default function CaisseExpenses() {
             {expenseCategories.map((c) => (
               <span key={c.id} className="chip group" style={{ background: `${c.color}22`, color: c.color }}>
                 <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />{c.name}
-                <button onClick={() => removeCategory(c.id, c.name)} className="ml-1 text-current/60 hover:text-rose-400" title="Supprimer la catégorie"><Trash2 className="h-3 w-3" /></button>
+                <button onClick={() => removeCategory(c.id, c.name)} className="-my-3.5 -mr-2 ml-1 p-3.5 text-current/60 hover:text-rose-400" title="Supprimer la catégorie"><Trash2 className="h-3 w-3" /></button>
               </span>
             ))}
           </div>

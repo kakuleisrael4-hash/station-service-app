@@ -15,6 +15,9 @@ function withOpacity(varName) {
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // Les variantes hover: ne s'appliquent que sur les appareils qui SAVENT survoler
+  // (souris) — sur tactile, plus aucun état « collé » après un tap.
+  future: { hoverOnlyWhenSupported: true },
   theme: {
     extend: {
       colors: {

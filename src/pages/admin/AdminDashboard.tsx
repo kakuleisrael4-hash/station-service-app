@@ -30,12 +30,12 @@ type Tab = 'communique' | 'rapport' | 'historique' | 'cloture' | 'carburant' | '
 const NAV_GROUPS = [
   {
     label: '📊 Tableau de bord',
-    items: [{ id: 'communique', label: "Vue d'ensemble", icon: <Megaphone className="h-4 w-4" /> }],
+    items: [{ id: 'communique', label: "Vue d'ensemble", short: 'Accueil', icon: <Megaphone className="h-4 w-4" /> }],
   },
   {
     label: '⛽ Opérations',
     items: [
-      { id: 'rapport', label: 'Nouveau Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
+      { id: 'rapport', label: 'Nouveau Rapport', short: 'Rapport', icon: <FilePlus2 className="h-4 w-4" /> },
       { id: 'historique', label: 'Historique des rapports', icon: <History className="h-4 w-4" /> },
       { id: 'cloture', label: 'Clôture journalière', icon: <CalendarCheck className="h-4 w-4" /> },
       { id: 'carburant', label: 'Citernes & Pompes', icon: <Droplets className="h-4 w-4" /> },
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
       <SideNav groups={NAV_GROUPS} active={tab} onSelect={(id) => setTab(id as Tab)}
         bottomBar={{ itemIds: ['communique', 'historique', 'caisse'], centerId: 'rapport' }} />
       <CommandPalette entries={COMMANDS} onSelect={(id) => setTab(id as Tab)} />
-      <div className="min-w-0 flex-1 pb-24 lg:pb-0">
+      <div key={tab} className="page-enter min-w-0 flex-1 lg:pb-0">
       <Breadcrumb groups={NAV_GROUPS} active={tab} />
 
       {tab === 'communique' && (
@@ -181,7 +181,7 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className={`py-2 text-right tabular-nums ${r.manquant > 0 ? 'text-rose-400' : 'text-slate-500'}`}>{r.manquant > 0 ? fc(r.manquant) : '—'}</td>
-                          <td className="py-2 text-right"><button onClick={async () => { const fresh = (await getDb().fetchReport(r.id)) ?? r; exportReportPDF(fresh, p?.display_name ?? 'Pompiste'); }} className="text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF (données fraîches)"><FileDown className="ml-auto h-4 w-4" /></button></td>
+                          <td className="py-2 text-right"><button onClick={async () => { const fresh = (await getDb().fetchReport(r.id)) ?? r; exportReportPDF(fresh, p?.display_name ?? 'Pompiste'); }} className="-m-3 p-3 text-slate-400 hover:text-energy-400" title="Télécharger le rapport en PDF (données fraîches)"><FileDown className="ml-auto h-4 w-4" /></button></td>
                         </tr>
                       );
                     })}

@@ -110,8 +110,8 @@ export default function ReportsHistory({ reports, pompistes, onDelete }: Props) 
                 </span>
               </div>
               <div className="mt-2.5 flex justify-end gap-3 border-t border-white/5 pt-2">
-                <button onClick={() => exportFresh(r)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-energy-400"><FileDown className="h-4 w-4" /> PDF</button>
-                {onDelete && <button onClick={() => setPending(r)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-rose-400"><Trash2 className="h-4 w-4" /> Supprimer</button>}
+                <button onClick={() => exportFresh(r)} className="flex min-h-11 items-center gap-1.5 px-2 text-xs text-slate-400 hover:text-energy-400"><FileDown className="h-4 w-4" /> PDF</button>
+                {onDelete && <button onClick={() => setPending(r)} className="flex min-h-11 items-center gap-1.5 px-2 text-xs text-slate-400 hover:text-rose-400"><Trash2 className="h-4 w-4" /> Supprimer</button>}
               </div>
             </div>
           ))}
